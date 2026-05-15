@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResultRouteImport } from './routes/result'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
@@ -20,6 +22,16 @@ import { Route as USplatRouteImport } from './routes/u.$'
 const ResultRoute = ResultRouteImport.update({
   id: '/result',
   path: '/result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityRoute = CommunityRouteImport.update({
@@ -58,6 +70,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
   '/u/': typeof UIndexRoute
@@ -67,6 +81,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
   '/u': typeof UIndexRoute
@@ -77,6 +93,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
   '/u/': typeof UIndexRoute
@@ -88,17 +106,30 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/community'
+    | '/login'
+    | '/me'
     | '/result'
     | '/u/$'
     | '/u/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/admin' | '/community' | '/result' | '/u/$' | '/u'
+  to:
+    | '/'
+    | '/about'
+    | '/admin'
+    | '/community'
+    | '/login'
+    | '/me'
+    | '/result'
+    | '/u/$'
+    | '/u'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/admin'
     | '/community'
+    | '/login'
+    | '/me'
     | '/result'
     | '/u/$'
     | '/u/'
@@ -109,6 +140,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   CommunityRoute: typeof CommunityRoute
+  LoginRoute: typeof LoginRoute
+  MeRoute: typeof MeRoute
   ResultRoute: typeof ResultRoute
   USplatRoute: typeof USplatRoute
   UIndexRoute: typeof UIndexRoute
@@ -121,6 +154,20 @@ declare module '@tanstack/react-router' {
       path: '/result'
       fullPath: '/result'
       preLoaderRoute: typeof ResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community': {
@@ -173,6 +220,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   CommunityRoute: CommunityRoute,
+  LoginRoute: LoginRoute,
+  MeRoute: MeRoute,
   ResultRoute: ResultRoute,
   USplatRoute: USplatRoute,
   UIndexRoute: UIndexRoute,
@@ -180,3 +229,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -174,11 +174,15 @@ serve(async (req) => {
       });
     }
 
-    // hash 缓存命中：直接复用历史商品（公开数据）
+    // hash 缓存命中：直接复用历史商品（公开数据）。新项目可能无 products 表，做容错。
     if (imageHash) {
-      const { data: hit } = await adminClient
-        .from('products').select('*').eq('image_hash', imageHash)
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      let hit: any = null;
+      try {
+        const r = await adminClient
+          .from('products').select('*').eq('image_hash', imageHash)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        hit = r.data;
+      } catch (_) { hit = null; }
       if (hit) {
         await adminClient.from('guest_daily_usage').upsert({
           ip_hash: ipHash, usage_date: today,

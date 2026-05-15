@@ -158,6 +158,33 @@ export type Database = {
         }
         Relationships: []
       }
+      recognition_cache: {
+        Row: {
+          created_at: string
+          hit_count: number
+          id: string
+          image_hash: string
+          result: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          image_hash: string
+          result: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hit_count?: number
+          id?: string
+          image_hash?: string
+          result?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

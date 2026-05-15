@@ -3,9 +3,10 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Camera, Share2, Check, Loader2, ChevronLeft, Sparkles, ImageOff, Aperture, Copy, FileText, RefreshCw } from 'lucide-react';
 import { GuestProductCard } from '@/components/recognition/GuestProductCard';
+import { RevealSkeleton } from '@/components/recognition/RevealSkeleton';
+import { useGuestRecognition, type GuestRecognitionResult } from '@/hooks/useGuestRecognition';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { GuestRecognitionResult } from '@/hooks/useGuestRecognition';
 import { makeThumbnail } from '@/lib/imageThumb';
 import {
   buildLocalShareCopy,
@@ -14,7 +15,7 @@ import {
   type ShareStyle,
 } from '@/lib/shareCopy';
 
-type ViewState = 'loading' | 'empty' | 'ready';
+type ViewState = 'pending' | 'loading' | 'empty' | 'ready';
 
 export default function PublicResult() {
   const navigate = useNavigate();
@@ -93,25 +94,93 @@ export default function PublicResult() {
     }
   };
 
-  useEffect(() => {
-    const raw = sessionStorage.getItem('guest_result');
-    const img = sessionStorage.getItem('guest_result_image');
-    if (!raw) {
-      setView('empty');
+  const { recognize } = useGuestRecognition();
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [pendingImageCount, setPendingImageCount] = useState(1);
+  const recognizeStartedRef = useRef(false);
+
+  const runPendingRecognize = async (images: string[]) => {
+    setPendingError(null);
+    const startedAt = performance.now();
+    const r = await recognize(images.length > 1 ? images : images[0]);
+    // 强制最短停留 600ms，避免缓存命中时骨架闪一下
+    const minMs = 600;
+    const wait = minMs - (performance.now() - startedAt);
+    if (wait > 0) await new Promise((res) => setTimeout(res, wait));
+    if (!r) {
+      setPendingError('识别失败，请检查网络或换个角度再试');
       return;
     }
     try {
-      const r: GuestRecognitionResult = JSON.parse(raw);
-      setResult(r);
-      if (img) setImage(img);
-      setView('ready');
-      // 首屏：本地秒出 + AI 替换
-      generateCaption(r, 'xhs', true);
-    } catch {
-      setView('empty');
+      sessionStorage.setItem('guest_result', JSON.stringify(r));
+      sessionStorage.removeItem('guest_pending_images');
+      if (typeof r.remaining === 'number') {
+        sessionStorage.setItem('guest_remaining', String(r.remaining));
+      }
+    } catch { /* noop */ }
+    setResult(r);
+    setView('ready');
+    generateCaption(r, 'xhs', true);
+  };
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('guest_result');
+    const img = sessionStorage.getItem('guest_result_image');
+    const pendingRaw = sessionStorage.getItem('guest_pending_images');
+    if (img) setImage(img);
+
+    if (raw) {
+      try {
+        const r: GuestRecognitionResult = JSON.parse(raw);
+        setResult(r);
+        setView('ready');
+        generateCaption(r, 'xhs', true);
+        return;
+      } catch { /* fallthrough */ }
     }
+
+    if (pendingRaw) {
+      try {
+        const images: string[] = JSON.parse(pendingRaw);
+        if (Array.isArray(images) && images.length > 0) {
+          setPendingImageCount(images.length);
+          setView('pending');
+          if (!recognizeStartedRef.current) {
+            recognizeStartedRef.current = true;
+            void runPendingRecognize(images);
+          }
+          return;
+        }
+      } catch { /* fallthrough */ }
+    }
+
+    setView('empty');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRetryPending = () => {
+    const pendingRaw = sessionStorage.getItem('guest_pending_images');
+    if (!pendingRaw) {
+      navigate({ to: '/' });
+      return;
+    }
+    try {
+      const images: string[] = JSON.parse(pendingRaw);
+      if (Array.isArray(images) && images.length > 0) {
+        setPendingError(null);
+        void runPendingRecognize(images);
+      }
+    } catch {
+      navigate({ to: '/' });
+    }
+  };
+
+  const handleCancelPending = () => {
+    try {
+      sessionStorage.removeItem('guest_pending_images');
+    } catch { /* noop */ }
+    navigate({ to: '/' });
+  };
 
   const handleStyleChange = (s: ShareStyle) => {
     if (!result || s === style) return;

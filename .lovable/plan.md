@@ -1,111 +1,47 @@
-## 目标
+## 问题诊断
 
-把"拍完 → 干等 1-3 秒 → 跳转"改成"拍完立即跳转 → 结果页骨架 + 渐进文案 → 数据到了无缝填充"，让用户在 AI 思考时一直感受到"事情在发生"。
+在 390×595 这种典型手机视口下，当前 `GuestOnboarding` 有几个明显问题：
 
-## 当前流程的问题
+1. **高亮目标可能在视口外不滚动**：`onboard-start-camera`（启动摄像头按钮）和 `onboard-multi-mode`（模式切换 Tab）都在 `CameraStage` 内部，位于较长的 Hero 之下。打开页面时这两个目标常常需要向下滚动才能看到，但 `GuestOnboarding` 只 `getBoundingClientRect`，不会主动滚动到目标 → 用户只看到一片黑屏 + 飘在顶上的气泡，找不到挖洞高亮。
+2. **气泡可能超出视口**：气泡 `top` / `bottom` 计算后没有夹到视口范围内，placement='top' 时如果目标靠上、气泡较高，会顶到状态栏甚至被截断；placement='bottom' 时如果目标靠下，气泡会掉出屏幕底部。
+3. **居中插画卡（第 3、4 步）在小屏太挤**：固定 `w-[min(22rem,...)]` + 居中，配合图标 + 标题 + 描述 + 两个按钮，垂直空间紧张时没有 `max-height` 与滚动兜底。
+4. **未考虑 safe-area**：iPhone 底部 home indicator / 顶部刘海会再吃掉 ~30-40px，bubble 可能压在系统手势区。
+5. **小细节**：Skip / 下一步按钮在窄屏 320px 上略显拥挤；进度点容易被标题挤换行。
 
-```text
-拍照 → CameraStage 蒙层等 1-3 秒(narrative steps) → 拿到结果 → 跳 /result
-                       ↑ 用户停在相机页，跳转动作发生在结果就绪后
-```
+## 实施方案（仅改 `src/components/public/GuestOnboarding.tsx`）
 
-虽然 CameraStage 已经有 narrative 步骤，但用户视觉上"卡在相机页"，跳转那一下又要再等 React 渲染整页结果，整体有顿挫感。
+**A. 切换步骤时自动滚动目标到视口中央**
 
-## 新流程
+`useLayoutEffect` 中：拿到目标元素后，先 `el.scrollIntoView({ behavior: 'smooth', block: 'center' })`，再延迟 ~250ms 二次 `measure()` 拿到最终位置，避免读到滚动前的旧 rect。`window` 不存在或 `targetId` 为空时跳过。
 
-```text
-拍照 → 立刻把图片写入 sessionStorage 并 navigate('/result') 
-     → /result 立刻展示「Reveal 骨架」(模糊大图 + 渐进文案 + 骨架块)
-     → 后台 recognize() 完成 → 真结果淡入替换 → 自动开始生成文案
-```
+**B. 气泡定位夹到视口安全区**
 
-CameraStage 的 onRecognize 返回 true 立即收起遮罩；真正的 AI 调用搬到 /result 触发。
+引入常量 `SAFE_TOP = 12`、`SAFE_BOTTOM = 16 + env(safe-area-inset-bottom)`（用 CSS `paddingBottom: 'max(env(safe-area-inset-bottom), 0px)'` 在容器上托底，JS 里用固定 16）。
 
-## 改动清单
+- 用 `ref` 测气泡自身 `offsetHeight`（`useLayoutEffect`），存为 `bubbleH`。
+- 计算 `bottomPlacementTop = hi.top + hi.height + 12`，若 `bottomPlacementTop + bubbleH > vh - SAFE_BOTTOM`，自动翻转为 top；反之亦然。两边都放不下时，降级为底部贴边的 sheet 样式：`bottom: SAFE_BOTTOM`，`top: auto`，并对气泡内容套 `max-height: 60vh; overflow-y:auto`。
+- placement 计算用 `bubbleH` 而不是固定的 220px 经验值。
 
-### 1. 新组件：`src/components/recognition/RevealSkeleton.tsx`
+**C. 居中插画卡兜底滚动**
 
-骨架页面，结构对齐 GuestProductCard，关键元素：
+无 `targetId` 的步骤使用 `top: 50%` 居中。增加 `max-height: calc(100vh - 2 * SAFE_TOP)`，超出时内部滚动；按钮区改为 `sticky bottom-0 bg-background pt-2`，确保 CTA 永远可见。
 
-- **模糊 Hero 图**：用刚拍的照片做 `backdrop-blur-xl + scale-105`，叠一层"扫描线" gradient（accent → transparent，垂直循环位移），传达"AI 正在看图"。
-- **顶部叙事条**：复用 SINGLE_STEPS / buildMultiSteps 数据结构（从 CameraStage 抽到 `src/lib/recognitionNarrative.ts`），按 elapsed 时间逐条点亮，已完成项打勾、当前项闪烁、未来项灰色。文案打字机式渐入，营造"AI 在写"的感觉。
-- **骨架块**：估值卡 / Meta 网格 / 故事段 / 看点列表 各一组 `bg-muted animate-pulse` 骨架，节奏要错开（每块 `animation-delay` 不同），避免整屏同步呼吸。
-- **底部提示**：「通常 2-4 秒，复杂物件可能稍久」+ 取消按钮（返回 `/`）。
+**D. 窄屏样式与可读性**
 
-### 2. `src/lib/recognitionNarrative.ts`
+- 气泡宽度从 `w-[min(22rem, calc(100vw-2rem))]` 调整为 `w-[min(22rem, calc(100vw-1.5rem))]`，留更小左右边距。
+- 头部「步骤计数 + 进度点」改为 `flex-wrap` 并把进度点放在自己的一行尾部，避免在 320px 上挤换行。
+- 「跳过 / 下一步」按钮区域加 `min-h-9`，按钮 `size="sm"` 不变；当只剩 1 步时把「跳过」隐藏，仅留「开始体验」更聚焦。
 
-把 SINGLE_STEPS、buildMultiSteps、currentStepIndex 计算逻辑提到独立模块，CameraStage 与 RevealSkeleton 共用，保证两边步骤一致、文案统一维护。
+**E. 高亮挖洞的 padding 适配小屏**
 
-### 3. `src/pages/public/PublicScan.tsx`
+`PADDING` 在视口宽度 < 400px 时降为 6（默认 8），避免对 Tab 这种贴边元素挖出视口外的洞导致整屏全黑。
 
-`handleRecognize` 改为：
+## 不改的内容
 
-```typescript
-const handleRecognize = async (images: string[]) => {
-  sessionStorage.setItem('guest_pending_images', JSON.stringify(images));
-  sessionStorage.setItem('guest_result_image', images[0]);
-  sessionStorage.removeItem('guest_result'); // 清掉旧结果
-  navigate({ to: '/result' });
-  return true; // 让 CameraStage 立刻收起遮罩
-};
-```
+- `PublicScan.tsx` 的步骤定义、`targetId`、文案均保持不变。
+- `CameraStage.tsx` 不动。
+- 设计 token / 颜色不动，只调结构与定位逻辑。
 
-不再在 PublicScan 里调 `recognize`，移除对 `useGuestRecognition` 的依赖（remaining 仍然展示，可改用 sessionStorage 缓存的上一次值，命中后再回填）。
+## 验证
 
-### 4. `src/pages/public/PublicResult.tsx`
-
-新增 `pending` 视图状态：
-
-```typescript
-type ViewState = 'pending' | 'loading' | 'empty' | 'ready';
-```
-
-挂载时优先级：
-
-1. 有 `guest_result` → 直接 ready（用户从历史进入）
-2. 有 `guest_pending_images` → 进入 pending：
-   - 立刻渲染 `<RevealSkeleton image={image} />`
-   - 调用 `recognize(images)`，成功后写 `guest_result`、清掉 `guest_pending_images`、切到 ready 并淡入 `<GuestProductCard>`、启动 generateCaption('xhs')
-   - 失败则展示"识别失败 + 重试 + 返回拍照"的失败态（复用现有错误 UI 风格）
-3. 都没有 → empty
-
-ready 切换时给整个结果块加 `animate-fade-in`，配合骨架淡出，过渡用 `transition-opacity duration-300`。
-
-### 5. `src/components/recognition/CameraStage.tsx` 微调
-
-- 将叙事步骤数据导入改为从 `src/lib/recognitionNarrative.ts` 引入（不改 UI）。
-- 因为 onRecognize 现在立刻 resolve(true)，相机蒙层不会触发——这是预期；删掉 `keepPreviewAfterSuccess` 在 PublicScan 处的判断也无影响。
-
-### 6. 失败态处理
-
-PublicResult 在 pending → 失败时：
-
-- 保留模糊 Hero 图，但骨架替换成「未能识别」卡片
-- 提供「再试一次」按钮：重新调 recognize（用 sessionStorage 里的 pending images）
-- 提供「重新拍一张」按钮：清掉 pending，回到 `/`
-
-不再跳 toast 后白屏。
-
-## 技术要点
-
-- **图片传递**：base64 已经在 sessionStorage（PublicScan 已 set），RevealSkeleton 直接读取，避免 props 漂移。
-- **取消保护**：useEffect 里用 `let cancelled = false` + cleanup，避免组件卸载后 setState 报警。
-- **最短停留**：即使缓存命中（hash_cache）瞬间返回，也强制至少展示 600ms 骨架，避免闪烁——比纯 spinner 更体面。
-- **样式系统**：所有色值走现有 token（`bg-muted` / `bg-accent/15` / `text-accent` / `bg-gradient-primary`），不引入新颜色。
-- **字体**：标题骨架占位高度按 `font-display 26px` 行高对齐，避免数据填充时跳动。
-- **动画**：用 styles.css 现有 `animate-pulse` / `animate-fade-in` / `animate-scale-in`，不新增 keyframes。
-
-## 不做的事
-
-- 不重写 CameraStage 的相机逻辑
-- 不动结果页除了 pending 态以外的部分（Valuation / 文案 / 分享卡保持原样）
-- 不改 edge function、不动数据库
-- 不引入新的状态管理库（继续 sessionStorage + 局部 useState）
-
-## 文件改动汇总
-
-- 新增 `src/lib/recognitionNarrative.ts`
-- 新增 `src/components/recognition/RevealSkeleton.tsx`
-- 改 `src/pages/public/PublicScan.tsx`（handleRecognize 改为乐观跳转）
-- 改 `src/pages/public/PublicResult.tsx`（新增 pending 状态 + 在此触发 recognize）
-- 改 `src/components/recognition/CameraStage.tsx`（仅迁移叙事数据导入）
+完成后在 390×595 与 360×640 两个常见手机视口下走一遍 4 步引导，确认：每一步高亮元素可见、气泡完整在屏内、底部按钮不被 home indicator 遮挡、居中插画卡在 595 高度下不溢出。

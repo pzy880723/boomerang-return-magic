@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Camera, Share2, Check, Loader2, ChevronLeft, Sparkles, ImageOff, Aperture, Copy, FileText, RefreshCw } from 'lucide-react';
 import { GuestProductCard } from '@/components/recognition/GuestProductCard';
@@ -229,7 +229,7 @@ export default function PublicResult() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate('/u')}
+          onClick={() => navigate({ to: '/u' })}
           className="gap-1 -ml-2 text-foreground/80 hover:bg-muted/60"
         >
           <ChevronLeft className="w-4 h-4" /> 返回
@@ -364,7 +364,7 @@ export default function PublicResult() {
           <Button
             variant="outline"
             className="h-auto py-3.5 flex-col gap-1.5 rounded-2xl"
-            onClick={() => navigate('/u')}
+            onClick={() => navigate({ to: '/u' })}
           >
             <Camera className="w-4 h-4 text-accent" />
             <span className="text-[12.5px] font-medium">再拍一件</span>

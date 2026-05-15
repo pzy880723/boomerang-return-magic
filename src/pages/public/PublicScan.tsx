@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Sparkles, Aperture, Lightbulb, Camera, Layers, FileText, Share2 } from 'lucide-react';
 import { CameraStage, type CameraStageHandle } from '@/components/recognition/CameraStage';
 import { useGuestRecognition } from '@/hooks/useGuestRecognition';
@@ -47,7 +47,7 @@ export default function PublicScan() {
     if (!r) return false;
     sessionStorage.setItem('guest_result', JSON.stringify(r));
     sessionStorage.setItem('guest_result_image', images[0]);
-    navigate('/u/result');
+    navigate({ to: '/u/result' });
     return true;
   };
 

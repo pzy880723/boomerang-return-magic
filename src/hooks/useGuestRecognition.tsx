@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { computeImageHash } from '@/lib/imageHash';
+import { compressDataUrl } from '@/lib/imageThumb';
 import type { RecognitionResult, ProductCategory } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 

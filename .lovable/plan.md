@@ -1,74 +1,49 @@
-## 方案
-采用 **A 方案：最小改动**——在 TanStack Start 里用 splat 路由 `src/routes/$.tsx` 包一层 `react-router-dom` 的 `<BrowserRouter>` + `<Routes>`，把源项目 `/u/*` 几乎 1:1 复制过来；后端继续用 Supabase Edge Functions（与源项目同款）。这样代码改动最少，最容易跑通。
+## 问题诊断
 
-源项目 ID `bef32724-503e-467a-af03-2062176cf921`。
+控制台报错：
+```
+Cannot update a component (Transitioner) while rendering a different component (BrowserRouter).
+```
 
-## 一、TanStack Start 路由壳
-- `src/routes/__root.tsx`：保留最小 shell（QueryClientProvider + Toaster + Sonner + TooltipProvider + Outlet + ErrorBoundary）
-- `src/routes/index.tsx`：直接 `<Navigate to="/u" />`（指向游客版首页）
-- `src/routes/$.tsx`（splat）：内部挂载 `<BrowserRouter><Routes>…/u/*…</Routes></BrowserRouter>`，承接所有 `/u`、`/u/result`、`/u/community`、`/u/about`、404
-  - 这样 TanStack 的文件路由只占根 + index + splat 三个，剩下全交给 react-router-dom，避免重写所有 `useNavigate / NavLink / Link`
+原因：当前在 TanStack Start 的 SSR 路由里嵌套了 `react-router-dom` 的 `BrowserRouter`。两套路由都监听浏览器 history／popstate，BrowserRouter 在挂载时调用 `setState`，触发 TanStack 的 Transitioner 在 render 阶段更新，造成无限循环 → 页面白屏（即便是客户端 mounted 后再渲染也救不回来）。
 
-## 二、需要复制 / 创建的源文件（保持源路径）
+混合方案（splat + BrowserRouter）在这个框架上不可行。修复必须把 `/u/*` 改成原生 TanStack 文件路由。
 
-### lib（业务工具）
-- `src/lib/shareCopy.ts`
-- `src/lib/utils.ts` ✅ 已建
-- `src/lib/imageHash.ts` ✅ 已建
-- `src/lib/imageThumb.ts` ✅ 已建
-- `src/lib/script.ts` ✅ 已建
-- `src/lib/chunkLoadRecovery.ts` ✅ 已建
+## 修复方案
 
-### types
-- `src/types/index.ts`（CATEGORY_LABELS / ProductCategory / RecognitionResult 等）
+### 1. 用文件路由替换 react-router-dom
 
-### hooks
-- `src/hooks/useGuestRecognition.tsx`
-- `src/hooks/use-toast.ts`（shadcn 标准 hook）
+新建：
+- `src/routes/u.tsx` — `/u` 布局路由（包 `<PublicLayout />`，里面用 TanStack 的 `<Outlet />`）
+- `src/routes/u.index.tsx` — `/u`（识物 / Scan）
+- `src/routes/u.result.tsx` — `/u/result`
+- `src/routes/u.community.tsx` — `/u/community`
+- `src/routes/u.about.tsx` — `/u/about`
 
-### components/ui（缺失补齐）
-- `src/components/ui/toast.tsx`
-- `src/components/ui/toaster.tsx`
-- (sonner.tsx 已存在)
+改：
+- `src/routes/index.tsx`：`beforeLoad` 直接 `throw redirect({ to: '/u' })`
+- `src/routes/$.tsx`：删除（catch-all 改为 `notFoundComponent` 重定向到 `/u`，已经有 root 的 NotFound，可以保留或改成自动跳 `/u`）
+- 删除 `src/App.tsx`（不再需要）
 
-### 业务组件
-- `src/components/system/ErrorBoundary.tsx`
-- `src/components/recognition/CameraStage.tsx`
-- `src/components/recognition/GuestProductCard.tsx`
-- `src/components/public/GuestOnboarding.tsx`
-- `src/components/layout/PublicLayout.tsx`
+### 2. 替换页面里的 react-router-dom 导入
 
-### 页面
-- `src/pages/public/PublicScan.tsx`
-- `src/pages/public/PublicResult.tsx`
-- `src/pages/public/PublicCommunity.tsx`
-- `src/pages/public/PublicAbout.tsx`
+5 个文件把 import 从 `react-router-dom` 换到 `@tanstack/react-router`：
+- `Link` → `Link`（API 兼容，`to` 写法一致）
+- `NavLink` → `Link` + `activeProps={{ className: '…' }}`
+- `useNavigate()` → `useNavigate()`，调用从 `navigate('/u/result', { state })` 改成 `navigate({ to: '/u/result', state })`；其中 `PublicResult` 读取 `location.state` 改用 TanStack 的 `useLocation().state` 或 `Route.useSearch()`/路由 state（保留 history.state 即可）
+- `useLocation` → `useLocation`
+- `Outlet`（PublicLayout）→ `Outlet`
 
-## 三、Edge Functions（直接 1:1 复制源项目）
-- `supabase/functions/recognize-product-public/index.ts`
-- `supabase/functions/submit-public-post/index.ts`
-- `supabase/functions/generate-share-copy/index.ts`
-- `supabase/config.toml`：为这 3 个函数加 `verify_jwt = false`
+### 3. 卸载依赖
 
-依赖的 secrets：`LOVABLE_API_KEY` ✅ 已配置；`GUEST_IP_SALT` 可选（不配走默认）。
+`bun remove react-router-dom`
 
-依赖的表：`community_posts` / `guest_daily_usage` / `app_settings` / `product-images` storage ✅ 已迁移。
+### 4. 验证
 
-> 注意 `recognize-product-public` 还会读 `products` 表做 hash 缓存。新项目没有 `products` 表，需要在函数里把 `from('products')` 命中段做容错（catch 后继续走 AI），或者建一张极简的占位 `products` 表（只用作未来共享缓存）。**采用容错方案**——改两行：把 hash 命中查询包在 try/catch 里，查询失败直接跳过缓存。
+预览访问 `/` 应跳转到 `/u`，4 个子页可来回切，识物→结果跳转携带数据正常，浏览器控制台无 Transitioner 报错。
 
-## 四、其他
-- `package.json` 已加 `react-router-dom`、`@radix-ui/react-toast` ✅
-- `src/styles.css` 已 port ✅
-- `src/assets/boomer-off-vintage-logo.png`、`shop-wechat-qr.png` ✅
+## 不在本次范围
 
-## 五、验收
-1. 预览页直接 `/` → 跳到 `/u`，看到「拍一拍」首页 + 引导浮层
-2. `/u/community` 能拉到（空）列表，不报错
-3. `/u/about` 静态页可见
-4. 点拍照按钮能调起摄像头（需 https，预览域名满足）；调用 `recognize-product-public` 走 AI；返回结果后跳 `/u/result`
-5. `/u/result` 能渲染卡片，`generate-share-copy` 出文案；点「匿名分享到中古圈」走 `submit-public-post` 写库
-
-## 不做
-- 不迁店员/admin/auth/portal/library
-- 不做 TanStack 原生路由化重写（之后想 SEO 再做 B 方案）
-- 不删 `community_posts` 的 `Public posts readable by anon` 策略（已经按公开策略建好）
+- 不动 Edge Functions、数据库、样式、识物业务逻辑
+- 不重写页面组件，只换路由 import 与导航 API
+- 不动认证/管理端

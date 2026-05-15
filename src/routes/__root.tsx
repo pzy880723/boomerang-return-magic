@@ -5,9 +5,11 @@ import {
   createRootRouteWithContext,
   useRouter,
   useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useRef } from "react";
 import { Camera, Users, Info } from "lucide-react";
 
 import appCss from "../styles.css?url";

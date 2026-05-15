@@ -320,6 +320,20 @@ serve(async (req) => {
     }, { onConflict: 'ip_hash,usage_date' });
     result.remaining = limit - (used + 1);
 
+    // 写入 hash 缓存（容错）
+    if (imageHash) {
+      try {
+        await adminClient.from('recognition_cache').upsert({
+          image_hash: imageHash,
+          result,
+          hit_count: 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'image_hash' });
+      } catch (e) {
+        console.warn('[GuestRecognize] cache write failed', e);
+      }
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -1,76 +1,64 @@
-## 目标
+# 游客版（中古识物）对齐规格 – 实施计划
 
-按新项目独立的姿态重做页面骨架（不照搬 `/u` 子路径），并把搬过来后失效的相机、上传、多角度、字体一次性修好。
+当前项目已经具备主体骨架（扁平路由 `/` `/community` `/result` `/about`、3 张表、3 个边缘函数），本次按规格书做"对齐 + 补齐 + 修复"，不重写。
 
-## 一、路由扁平化（删除 `/u` 概念）
+## 一、修复阻塞问题
 
-新结构（全部根路径）：
+1. **/u 旧链接 404**：用户当前在 `/u`，旧路由已删。在 `__root.tsx` 加客户端兜底：检测 `/u*` 路径时 `navigate('/', { replace: true })`；同时新增 `src/routes/u.tsx` 作 catch-all 重定向，避免直链失败。
+2. **摄像头/上传**：复核 `CameraStage` 在沙箱 iframe 下 `getUserMedia` 失败时的回退提示是否生效，必须保证"上传图片"按钮在空状态与摄像头按钮等权重展示，失败 toast 文案明确指向"改用上传图片"。
+3. **字体**：确认 `__root.tsx` 已通过 `<link>` 注入 Playfair Display + Noto Sans SC，`styles.css` 字体变量含中文 fallback。
 
-```
-/            → 识物（首页就是相机/上传）
-/community   → 中古圈广场（匿名瀑布流）
-/result      → 识别结果（拿 location.state 或 sessionStorage 渲染，无数据则跳回 /）
-/about       → 品牌 / 关于 / 微信二维码
-```
+## 二、补齐规格缺失项
 
-删除：
-- `src/routes/u.tsx`、`u.index.tsx`、`u.result.tsx`、`u.community.tsx`、`u.about.tsx`
-- `src/routes/index.tsx` 里的 `beforeLoad → /u` 重定向
+### 数据层
+- 新增 `recognition_cache` 表（`image_hash unique / result jsonb / hit_count / created_at`），RLS 关闭，仅边缘函数写入。
+- 改造 `recognize-product-public`：先查 `recognition_cache`（命中返回 `__pipeline:'hash_cache'` + `hit_count++`），未命中再调 AI 并回写缓存。
+- `submit-public-post` 增加 IP 限流（`share_count`，3 次/天）。
 
-新增/改写：
-- `src/routes/__root.tsx` 提供顶部 logo + 三 tab 主导航 + `<Outlet />`，不再嵌一层 `/u` layout
-- `src/routes/index.tsx` 直接渲染识物页
-- `src/routes/community.tsx`、`result.tsx`、`about.tsx`
-- 旧 `src/components/layout/PublicLayout.tsx` 合并进 `__root.tsx` 后删除
+### 拍一拍页 (`/`)
+- 顶部气泡显示「今日剩余 X 次」（接 `recognize-product-public` 返回的 `remaining`，首屏调一次轻量探测或在首次识别后回填）。
+- 首次进入 4 步浮层引导（拍摄 → 多角度 → 自动文案 → 一键分享），`sessionStorage` 记忆已看过。
+- 多角度最多 5 张，合并送 AI；本地 pHash（8x8 灰度均值）计算后随请求带 `imageHash`。
 
-页面内所有 `<Link to="/u/...">`、`navigate({ to: '/u/...' })` 同步改为根路径。
+### 结果页 (`/result`)
+- 三种文案风格切换（小红书 / 朋友圈 / 微信群），本地模板秒出兜底，背后调 `generate-share-copy` AI 改写覆盖。
+- 「复制文案」`navigator.clipboard` + toast。
+- 「匿名发布到中古圈」按钮明确提示"将以游客身份匿名发布"，调用 `submit-public-post`。
+- GuestProductCard 重点突出 `story / appreciation / marketValue / buyReason`。
 
-## 二、修复相机 / 上传 / 多角度
+### 中古圈 (`/community`)
+- 类目筛选 chips：日瓷 / 欧瓷 / 动漫玩具 / 奢侈品 / Walkman / CCD / 其他。
+- 分页：每页 24，下拉加载更多。
+- 卡片只读，点击展开 GuestProductCard 详情（不做点赞/评论）。
+- 底部门店微信二维码占位区。
 
-排查到的根因：
+### 关于页 (`/about`)
+- 静态：品牌故事 + 三步使用 + 中古圈说明 + 「现在就拍一拍」CTA → `/`。
 
-1. **预览 iframe 没声明 camera 权限** → `getUserMedia` 在 Lovable 预览环境会被静默拒绝。
-   修复：在 `index.html` 里给页面和示例调用加 meta 提示；并在按钮触发失败时降级到「上传」并给清晰 toast（已有 toast，但需要在 `NotAllowedError` 时多说一句"预览环境请改用上传，或在已发布域名打开"）。
-   说明：相机本身在已发布域名（HTTPS + 用户手势）能正常工作，预览 iframe 的限制是 Lovable 平台行为，非代码 bug。
+## 三、UX 收口
 
-2. **`recognize-product-public` 调用链** ：现已部署，但 `useGuestRecognition` 里 `imageHash` 计算依赖 `src/lib/imageHash.ts`，需确认它在浏览器里能跑（不依赖 node crypto）。如有问题用 `crypto.subtle` 重写。
+- 底部 3 Tab 固定：拍一拍 / 中古圈 / 关于，无登录、无个人中心。
+- 顶部仅 logo，去掉一切账号入口。
+- 失败用 toast，不弹 modal。
+- 100% 简体中文，仅 Hero 字母图形可保留英文。
 
-3. **多角度按钮**：`finishMultiCapture` 在已捕获 1 张之后才出现「识别 (n)」按钮（CameraStage line 588-597），逻辑是对的；如果用户看不到，是因为相机没成功启动 → 同问题 1。修好相机即解。
+## 四、明确不做
 
-4. **上传按钮**：`fileInputRef.current?.click()` 触发 hidden input；当前实现没问题。但「上传」按钮只在 `!isStreaming && !capturedImage` 时显示——一旦相机启动失败回到默认状态，上传仍可用。验证一遍 toast 错误时不会卡住状态机。
+- 登录注册、点赞评论、收藏历史、店员后台、闲鱼行情、通知签到。
 
-行动：
-- 重写 `useGuestRecognition` 里的 hash 计算改用 `crypto.subtle.digest('SHA-256', ...)`，避免 polyfill 问题
-- `CameraStage` 在 `getUserMedia` 失败时把错误明确分类（`NotAllowedError` / `NotFoundError` / 协议非 HTTPS / 预览 iframe），文案对应给到「请直接上传图片」的指引
-- 在「未启动」空状态下把「启动摄像头」「上传图片」做成同等突出的两个 CTA（当前上传按钮视觉偏弱）
+## 技术细节
 
-## 三、字体修复
+- 栈保持：TanStack Start + Tailwind v4 + shadcn + Lovable Cloud + Lovable AI Gateway（`google/gemini-2.5-flash`）。
+- 边缘函数全部 `verify_jwt = false`（已在 `supabase/config.toml`）。
+- pHash 在 `src/lib/imageHash.ts` 已带 SSR 守卫，沿用。
+- 新增 `recognition_cache` 通过迁移工具创建。
 
-当前问题：`@import url(...fonts.googleapis.com)` 在某些预览/中国大陆网络下加载慢或失败 → 落到 `system-ui` 看起来"字体不对"。
+## 执行顺序
 
-方案：
-- 保留 Playfair Display（西文标题）+ Noto Sans SC（中文正文）的搭配（你说"保留现有配色"，字体也保留方向）
-- 改用 `<link rel="preconnect">` + 在 `index.html` `<head>` 直接加 `<link rel="stylesheet" href="https://fonts.googleapis.com/...">`，比 CSS `@import` 更早开始下载
-- 加 `font-display: swap`（已有）+ `<link rel="preload" as="style">` 提前并行
-- 给 `body` 和 `.font-display` 加更完整的中文 fallback：`"PingFang SC", "Microsoft YaHei"`，避免落到 serif 难看
-
-## 四、Edge Functions / 数据库
-
-- 已部署的 3 个函数（`recognize-product-public` / `submit-public-post` / `generate-share-copy`）保留，`config.toml` 已 `verify_jwt = false`，无需改
-- `community_posts` / `guest_daily_usage` 表已就绪，本次不动
-- 不引入 Supabase Auth / 登录流程，全程匿名
-
-## 五、不做的事
-
-- 不重做配色（你确认保留现 vintage editorial 调性）
-- 不改 AI 识别 prompt 与商品分类逻辑
-- 不替换底层 `CameraStage` 的取景/快门交互（视觉已经达标），只修错误处理和入口
-
-## 验收
-
-1. `/` 直接看到相机壳子 + 启动/上传两按钮，无任何 `/u` 跳转
-2. 点「上传」选图能完整跑完识别 → 跳到 `/result` 看到结果卡片
-3. 拒绝摄像头权限后会出现明确的中文提示，并提示改用上传
-4. 多角度模式下能连续拍 ≤5 张，点「识别 (n)」走多图识别
-5. 中文 + 西文字体在第一屏就正确渲染，不出现回落 serif
-6. `/community` 列出已发布的匿名帖子，`/about` 显示品牌信息
+1. 修 `/u` 重定向 + 摄像头/字体复核（无 DB 变更）。
+2. 迁移：新增 `recognition_cache` 表。
+3. 改 `recognize-product-public` 接缓存，`submit-public-post` 加分享限流。
+4. 拍一拍：剩余次数气泡 + 4 步引导 + 多角度 pHash。
+5. 结果页：三风格切换 + 匿名发布提示。
+6. 中古圈：类目 chips + 分页 24 + 二维码占位。
+7. 关于页静态文案对齐。

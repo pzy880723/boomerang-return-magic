@@ -113,6 +113,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function PublicChrome() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const tapRef = useRef<{ count: number; last: number }>({ count: 0, last: 0 });
+
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const now = Date.now();
+    const within = now - tapRef.current.last < 600;
+    tapRef.current.count = within ? tapRef.current.count + 1 : 1;
+    tapRef.current.last = now;
+    if (tapRef.current.count >= 5) {
+      e.preventDefault();
+      tapRef.current.count = 0;
+      navigate({ to: "/admin" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-surface flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl safe-top">

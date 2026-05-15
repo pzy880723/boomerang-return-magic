@@ -174,27 +174,26 @@ serve(async (req) => {
       });
     }
 
-    // hash 缓存命中：直接复用历史商品（公开数据）。新项目可能无 products 表，做容错。
+    // hash 缓存命中：直接复用之前 AI 算过的结果。
     if (imageHash) {
-      let hit: any = null;
-      try {
-        const r = await adminClient
-          .from('products').select('*').eq('image_hash', imageHash)
-          .order('created_at', { ascending: false }).limit(1).maybeSingle();
-        hit = r.data;
-      } catch (_) { hit = null; }
-      if (hit) {
+      const { data: cacheHit } = await adminClient
+        .from('recognition_cache')
+        .select('result, hit_count, created_at')
+        .eq('image_hash', imageHash)
+        .maybeSingle();
+      if (cacheHit?.result) {
         await adminClient.from('guest_daily_usage').upsert({
           ip_hash: ipHash, usage_date: today,
           recognize_count: used + 1, updated_at: new Date().toISOString(),
         }, { onConflict: 'ip_hash,usage_date' });
-        const cached = productRowToGuestResult(hit);
+        await adminClient.from('recognition_cache')
+          .update({ hit_count: (cacheHit.hit_count || 0) + 1, updated_at: new Date().toISOString() })
+          .eq('image_hash', imageHash);
         return new Response(JSON.stringify({
-          ...cached,
+          ...(cacheHit.result as Record<string, unknown>),
           fromCache: true,
           cacheSource: 'hash',
-          cachedAt: hit.created_at,
-          cachedProductId: hit.id,
+          cachedAt: cacheHit.created_at,
           imageHash,
           remaining: limit - (used + 1),
           __pipeline: { source: 'hash_cache', cacheSource: 'hash', webSearchUsed: false },
@@ -320,6 +319,20 @@ serve(async (req) => {
       recognize_count: used + 1, updated_at: new Date().toISOString(),
     }, { onConflict: 'ip_hash,usage_date' });
     result.remaining = limit - (used + 1);
+
+    // 写入 hash 缓存（容错）
+    if (imageHash) {
+      try {
+        await adminClient.from('recognition_cache').upsert({
+          image_hash: imageHash,
+          result,
+          hit_count: 0,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'image_hash' });
+      } catch (e) {
+        console.warn('[GuestRecognize] cache write failed', e);
+      }
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

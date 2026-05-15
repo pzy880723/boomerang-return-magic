@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { supabase } from '@/integrations/supabase/client';
 import { CATEGORY_LABELS, ProductCategory } from '@/types';
 import { Camera, X, ImageOff, Heart, MessageCircle, MessageSquareHeart } from 'lucide-react';

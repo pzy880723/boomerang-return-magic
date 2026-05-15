@@ -14,7 +14,150 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      community_posts: {
+        Row: {
+          appreciation: string | null
+          buy_reason: string | null
+          care_tips: string | null
+          category: string
+          collection_value: string | null
+          comments_count: number
+          condition: string | null
+          confidence: number | null
+          craft: string | null
+          created_at: string
+          description: string | null
+          dimensions: string | null
+          era: string | null
+          guest_name: string | null
+          id: string
+          image_url: string | null
+          is_guest: boolean
+          is_public: boolean
+          likes_count: number
+          market_value: string | null
+          material: string | null
+          name: string
+          origin: string | null
+          product_id: string | null
+          rarity: number | null
+          selling_points: Json | null
+          story: string | null
+          thumbnail_url: string | null
+          tips: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          appreciation?: string | null
+          buy_reason?: string | null
+          care_tips?: string | null
+          category?: string
+          collection_value?: string | null
+          comments_count?: number
+          condition?: string | null
+          confidence?: number | null
+          craft?: string | null
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          era?: string | null
+          guest_name?: string | null
+          id?: string
+          image_url?: string | null
+          is_guest?: boolean
+          is_public?: boolean
+          likes_count?: number
+          market_value?: string | null
+          material?: string | null
+          name: string
+          origin?: string | null
+          product_id?: string | null
+          rarity?: number | null
+          selling_points?: Json | null
+          story?: string | null
+          thumbnail_url?: string | null
+          tips?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          appreciation?: string | null
+          buy_reason?: string | null
+          care_tips?: string | null
+          category?: string
+          collection_value?: string | null
+          comments_count?: number
+          condition?: string | null
+          confidence?: number | null
+          craft?: string | null
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          era?: string | null
+          guest_name?: string | null
+          id?: string
+          image_url?: string | null
+          is_guest?: boolean
+          is_public?: boolean
+          likes_count?: number
+          market_value?: string | null
+          material?: string | null
+          name?: string
+          origin?: string | null
+          product_id?: string | null
+          rarity?: number | null
+          selling_points?: Json | null
+          story?: string | null
+          thumbnail_url?: string | null
+          tips?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      guest_daily_usage: {
+        Row: {
+          ip_hash: string
+          recognize_count: number
+          share_count: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          ip_hash: string
+          recognize_count?: number
+          share_count?: number
+          updated_at?: string
+          usage_date: string
+        }
+        Update: {
+          ip_hash?: string
+          recognize_count?: number
+          share_count?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

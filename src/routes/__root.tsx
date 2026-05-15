@@ -72,14 +72,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "BOOMER OFF" },
+      { name: "description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "BOOMER OFF" },
+      { property: "og:description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "BOOMER OFF" },
+      { name: "twitter:description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91448fab-0fb7-426d-b24a-53b5d1bba876/id-preview-e154247e--97073537-e1d9-4da6-b225-eb3eb47cf078.lovable.app-1778866822132.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91448fab-0fb7-426d-b24a-53b5d1bba876/id-preview-e154247e--97073537-e1d9-4da6-b225-eb3eb47cf078.lovable.app-1778866822132.png" },
     ],
     links: [
       {

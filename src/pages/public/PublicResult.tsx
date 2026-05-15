@@ -235,6 +235,19 @@ export default function PublicResult() {
     }
   };
 
+  // —— Pending：拍完→AI 识别中。展示 Reveal 骨架。 ——
+  if (view === 'pending') {
+    return (
+      <RevealSkeleton
+        image={image}
+        imageCount={pendingImageCount}
+        error={pendingError}
+        onRetry={pendingError ? handleRetryPending : undefined}
+        onCancel={pendingError ? handleCancelPending : undefined}
+      />
+    );
+  }
+
   // —— 加载骨架 ——
   if (view === 'loading') {
     return (

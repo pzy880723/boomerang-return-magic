@@ -1,64 +1,111 @@
-# 游客版（中古识物）对齐规格 – 实施计划
+## 目标
 
-当前项目已经具备主体骨架（扁平路由 `/` `/community` `/result` `/about`、3 张表、3 个边缘函数），本次按规格书做"对齐 + 补齐 + 修复"，不重写。
+把"拍完 → 干等 1-3 秒 → 跳转"改成"拍完立即跳转 → 结果页骨架 + 渐进文案 → 数据到了无缝填充"，让用户在 AI 思考时一直感受到"事情在发生"。
 
-## 一、修复阻塞问题
+## 当前流程的问题
 
-1. **/u 旧链接 404**：用户当前在 `/u`，旧路由已删。在 `__root.tsx` 加客户端兜底：检测 `/u*` 路径时 `navigate('/', { replace: true })`；同时新增 `src/routes/u.tsx` 作 catch-all 重定向，避免直链失败。
-2. **摄像头/上传**：复核 `CameraStage` 在沙箱 iframe 下 `getUserMedia` 失败时的回退提示是否生效，必须保证"上传图片"按钮在空状态与摄像头按钮等权重展示，失败 toast 文案明确指向"改用上传图片"。
-3. **字体**：确认 `__root.tsx` 已通过 `<link>` 注入 Playfair Display + Noto Sans SC，`styles.css` 字体变量含中文 fallback。
+```text
+拍照 → CameraStage 蒙层等 1-3 秒(narrative steps) → 拿到结果 → 跳 /result
+                       ↑ 用户停在相机页，跳转动作发生在结果就绪后
+```
 
-## 二、补齐规格缺失项
+虽然 CameraStage 已经有 narrative 步骤，但用户视觉上"卡在相机页"，跳转那一下又要再等 React 渲染整页结果，整体有顿挫感。
 
-### 数据层
-- 新增 `recognition_cache` 表（`image_hash unique / result jsonb / hit_count / created_at`），RLS 关闭，仅边缘函数写入。
-- 改造 `recognize-product-public`：先查 `recognition_cache`（命中返回 `__pipeline:'hash_cache'` + `hit_count++`），未命中再调 AI 并回写缓存。
-- `submit-public-post` 增加 IP 限流（`share_count`，3 次/天）。
+## 新流程
 
-### 拍一拍页 (`/`)
-- 顶部气泡显示「今日剩余 X 次」（接 `recognize-product-public` 返回的 `remaining`，首屏调一次轻量探测或在首次识别后回填）。
-- 首次进入 4 步浮层引导（拍摄 → 多角度 → 自动文案 → 一键分享），`sessionStorage` 记忆已看过。
-- 多角度最多 5 张，合并送 AI；本地 pHash（8x8 灰度均值）计算后随请求带 `imageHash`。
+```text
+拍照 → 立刻把图片写入 sessionStorage 并 navigate('/result') 
+     → /result 立刻展示「Reveal 骨架」(模糊大图 + 渐进文案 + 骨架块)
+     → 后台 recognize() 完成 → 真结果淡入替换 → 自动开始生成文案
+```
 
-### 结果页 (`/result`)
-- 三种文案风格切换（小红书 / 朋友圈 / 微信群），本地模板秒出兜底，背后调 `generate-share-copy` AI 改写覆盖。
-- 「复制文案」`navigator.clipboard` + toast。
-- 「匿名发布到中古圈」按钮明确提示"将以游客身份匿名发布"，调用 `submit-public-post`。
-- GuestProductCard 重点突出 `story / appreciation / marketValue / buyReason`。
+CameraStage 的 onRecognize 返回 true 立即收起遮罩；真正的 AI 调用搬到 /result 触发。
 
-### 中古圈 (`/community`)
-- 类目筛选 chips：日瓷 / 欧瓷 / 动漫玩具 / 奢侈品 / Walkman / CCD / 其他。
-- 分页：每页 24，下拉加载更多。
-- 卡片只读，点击展开 GuestProductCard 详情（不做点赞/评论）。
-- 底部门店微信二维码占位区。
+## 改动清单
 
-### 关于页 (`/about`)
-- 静态：品牌故事 + 三步使用 + 中古圈说明 + 「现在就拍一拍」CTA → `/`。
+### 1. 新组件：`src/components/recognition/RevealSkeleton.tsx`
 
-## 三、UX 收口
+骨架页面，结构对齐 GuestProductCard，关键元素：
 
-- 底部 3 Tab 固定：拍一拍 / 中古圈 / 关于，无登录、无个人中心。
-- 顶部仅 logo，去掉一切账号入口。
-- 失败用 toast，不弹 modal。
-- 100% 简体中文，仅 Hero 字母图形可保留英文。
+- **模糊 Hero 图**：用刚拍的照片做 `backdrop-blur-xl + scale-105`，叠一层"扫描线" gradient（accent → transparent，垂直循环位移），传达"AI 正在看图"。
+- **顶部叙事条**：复用 SINGLE_STEPS / buildMultiSteps 数据结构（从 CameraStage 抽到 `src/lib/recognitionNarrative.ts`），按 elapsed 时间逐条点亮，已完成项打勾、当前项闪烁、未来项灰色。文案打字机式渐入，营造"AI 在写"的感觉。
+- **骨架块**：估值卡 / Meta 网格 / 故事段 / 看点列表 各一组 `bg-muted animate-pulse` 骨架，节奏要错开（每块 `animation-delay` 不同），避免整屏同步呼吸。
+- **底部提示**：「通常 2-4 秒，复杂物件可能稍久」+ 取消按钮（返回 `/`）。
 
-## 四、明确不做
+### 2. `src/lib/recognitionNarrative.ts`
 
-- 登录注册、点赞评论、收藏历史、店员后台、闲鱼行情、通知签到。
+把 SINGLE_STEPS、buildMultiSteps、currentStepIndex 计算逻辑提到独立模块，CameraStage 与 RevealSkeleton 共用，保证两边步骤一致、文案统一维护。
 
-## 技术细节
+### 3. `src/pages/public/PublicScan.tsx`
 
-- 栈保持：TanStack Start + Tailwind v4 + shadcn + Lovable Cloud + Lovable AI Gateway（`google/gemini-2.5-flash`）。
-- 边缘函数全部 `verify_jwt = false`（已在 `supabase/config.toml`）。
-- pHash 在 `src/lib/imageHash.ts` 已带 SSR 守卫，沿用。
-- 新增 `recognition_cache` 通过迁移工具创建。
+`handleRecognize` 改为：
 
-## 执行顺序
+```typescript
+const handleRecognize = async (images: string[]) => {
+  sessionStorage.setItem('guest_pending_images', JSON.stringify(images));
+  sessionStorage.setItem('guest_result_image', images[0]);
+  sessionStorage.removeItem('guest_result'); // 清掉旧结果
+  navigate({ to: '/result' });
+  return true; // 让 CameraStage 立刻收起遮罩
+};
+```
 
-1. 修 `/u` 重定向 + 摄像头/字体复核（无 DB 变更）。
-2. 迁移：新增 `recognition_cache` 表。
-3. 改 `recognize-product-public` 接缓存，`submit-public-post` 加分享限流。
-4. 拍一拍：剩余次数气泡 + 4 步引导 + 多角度 pHash。
-5. 结果页：三风格切换 + 匿名发布提示。
-6. 中古圈：类目 chips + 分页 24 + 二维码占位。
-7. 关于页静态文案对齐。
+不再在 PublicScan 里调 `recognize`，移除对 `useGuestRecognition` 的依赖（remaining 仍然展示，可改用 sessionStorage 缓存的上一次值，命中后再回填）。
+
+### 4. `src/pages/public/PublicResult.tsx`
+
+新增 `pending` 视图状态：
+
+```typescript
+type ViewState = 'pending' | 'loading' | 'empty' | 'ready';
+```
+
+挂载时优先级：
+
+1. 有 `guest_result` → 直接 ready（用户从历史进入）
+2. 有 `guest_pending_images` → 进入 pending：
+   - 立刻渲染 `<RevealSkeleton image={image} />`
+   - 调用 `recognize(images)`，成功后写 `guest_result`、清掉 `guest_pending_images`、切到 ready 并淡入 `<GuestProductCard>`、启动 generateCaption('xhs')
+   - 失败则展示"识别失败 + 重试 + 返回拍照"的失败态（复用现有错误 UI 风格）
+3. 都没有 → empty
+
+ready 切换时给整个结果块加 `animate-fade-in`，配合骨架淡出，过渡用 `transition-opacity duration-300`。
+
+### 5. `src/components/recognition/CameraStage.tsx` 微调
+
+- 将叙事步骤数据导入改为从 `src/lib/recognitionNarrative.ts` 引入（不改 UI）。
+- 因为 onRecognize 现在立刻 resolve(true)，相机蒙层不会触发——这是预期；删掉 `keepPreviewAfterSuccess` 在 PublicScan 处的判断也无影响。
+
+### 6. 失败态处理
+
+PublicResult 在 pending → 失败时：
+
+- 保留模糊 Hero 图，但骨架替换成「未能识别」卡片
+- 提供「再试一次」按钮：重新调 recognize（用 sessionStorage 里的 pending images）
+- 提供「重新拍一张」按钮：清掉 pending，回到 `/`
+
+不再跳 toast 后白屏。
+
+## 技术要点
+
+- **图片传递**：base64 已经在 sessionStorage（PublicScan 已 set），RevealSkeleton 直接读取，避免 props 漂移。
+- **取消保护**：useEffect 里用 `let cancelled = false` + cleanup，避免组件卸载后 setState 报警。
+- **最短停留**：即使缓存命中（hash_cache）瞬间返回，也强制至少展示 600ms 骨架，避免闪烁——比纯 spinner 更体面。
+- **样式系统**：所有色值走现有 token（`bg-muted` / `bg-accent/15` / `text-accent` / `bg-gradient-primary`），不引入新颜色。
+- **字体**：标题骨架占位高度按 `font-display 26px` 行高对齐，避免数据填充时跳动。
+- **动画**：用 styles.css 现有 `animate-pulse` / `animate-fade-in` / `animate-scale-in`，不新增 keyframes。
+
+## 不做的事
+
+- 不重写 CameraStage 的相机逻辑
+- 不动结果页除了 pending 态以外的部分（Valuation / 文案 / 分享卡保持原样）
+- 不改 edge function、不动数据库
+- 不引入新的状态管理库（继续 sessionStorage + 局部 useState）
+
+## 文件改动汇总
+
+- 新增 `src/lib/recognitionNarrative.ts`
+- 新增 `src/components/recognition/RevealSkeleton.tsx`
+- 改 `src/pages/public/PublicScan.tsx`（handleRecognize 改为乐观跳转）
+- 改 `src/pages/public/PublicResult.tsx`（新增 pending 状态 + 在此触发 recognize）
+- 改 `src/components/recognition/CameraStage.tsx`（仅迁移叙事数据导入）

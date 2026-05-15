@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Sparkles, Aperture, Lightbulb, Camera, Layers, FileText, Share2 } from 'lucide-react';
 import { CameraStage, type CameraStageHandle } from '@/components/recognition/CameraStage';
-import { useGuestRecognition } from '@/hooks/useGuestRecognition';
 import { GuestOnboarding, type OnboardStep } from '@/components/public/GuestOnboarding';
 
 const ONBOARD_STEPS: OnboardStep[] = [
@@ -36,17 +35,31 @@ const ONBOARD_STEPS: OnboardStep[] = [
 
 export default function PublicScan() {
   const navigate = useNavigate();
-  const { recognize, remaining } = useGuestRecognition();
   const stageRef = useRef<CameraStageHandle>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(
     () => typeof window !== 'undefined' && !sessionStorage.getItem('guest_onboarding_shown_v1'),
   );
 
+  // 复用上一次识别返回的"今日剩余"作为乐观显示
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const cached = sessionStorage.getItem('guest_remaining');
+    if (cached != null) {
+      const n = Number(cached);
+      if (Number.isFinite(n)) setRemaining(n);
+    }
+  }, []);
+
+  // 乐观跳转：拍完立即把图片塞进 sessionStorage 并跳到 /result，AI 调用在结果页发起。
   const handleRecognize = async (images: string[]): Promise<boolean> => {
-    const r = await recognize(images.length > 1 ? images : images[0]);
-    if (!r) return false;
-    sessionStorage.setItem('guest_result', JSON.stringify(r));
-    sessionStorage.setItem('guest_result_image', images[0]);
+    try {
+      sessionStorage.setItem('guest_pending_images', JSON.stringify(images));
+      sessionStorage.setItem('guest_result_image', images[0]);
+      sessionStorage.removeItem('guest_result');
+    } catch {
+      // sessionStorage 不可用时也至少跳转
+    }
     navigate({ to: '/result' });
     return true;
   };
@@ -119,8 +132,6 @@ export default function PublicScan() {
     </div>
   );
 }
-
-// keep tail intact below
 
 function Tip({ n, children }: { n: string; children: React.ReactNode }) {
   return (

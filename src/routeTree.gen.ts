@@ -9,16 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as URouteImport } from './routes/u'
+import { Route as ResultRouteImport } from './routes/result'
+import { Route as CommunityRouteImport } from './routes/community'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as UIndexRouteImport } from './routes/u.index'
-import { Route as UResultRouteImport } from './routes/u.result'
-import { Route as UCommunityRouteImport } from './routes/u.community'
-import { Route as UAboutRouteImport } from './routes/u.about'
 
-const URoute = URouteImport.update({
-  id: '/u',
-  path: '/u',
+const ResultRoute = ResultRouteImport.update({
+  id: '/result',
+  path: '/result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -26,78 +34,62 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UIndexRoute = UIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => URoute,
-} as any)
-const UResultRoute = UResultRouteImport.update({
-  id: '/result',
-  path: '/result',
-  getParentRoute: () => URoute,
-} as any)
-const UCommunityRoute = UCommunityRouteImport.update({
-  id: '/community',
-  path: '/community',
-  getParentRoute: () => URoute,
-} as any)
-const UAboutRoute = UAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => URoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/u': typeof URouteWithChildren
-  '/u/about': typeof UAboutRoute
-  '/u/community': typeof UCommunityRoute
-  '/u/result': typeof UResultRoute
-  '/u/': typeof UIndexRoute
+  '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/result': typeof ResultRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/u/about': typeof UAboutRoute
-  '/u/community': typeof UCommunityRoute
-  '/u/result': typeof UResultRoute
-  '/u': typeof UIndexRoute
+  '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/result': typeof ResultRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/u': typeof URouteWithChildren
-  '/u/about': typeof UAboutRoute
-  '/u/community': typeof UCommunityRoute
-  '/u/result': typeof UResultRoute
-  '/u/': typeof UIndexRoute
+  '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/result': typeof ResultRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/u' | '/u/about' | '/u/community' | '/u/result' | '/u/'
+  fullPaths: '/' | '/about' | '/community' | '/result'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/u/about' | '/u/community' | '/u/result' | '/u'
-  id:
-    | '__root__'
-    | '/'
-    | '/u'
-    | '/u/about'
-    | '/u/community'
-    | '/u/result'
-    | '/u/'
+  to: '/' | '/about' | '/community' | '/result'
+  id: '__root__' | '/' | '/about' | '/community' | '/result'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  URoute: typeof URouteWithChildren
+  AboutRoute: typeof AboutRoute
+  CommunityRoute: typeof CommunityRoute
+  ResultRoute: typeof ResultRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/u': {
-      id: '/u'
-      path: '/u'
-      fullPath: '/u'
-      preLoaderRoute: typeof URouteImport
+    '/result': {
+      id: '/result'
+      path: '/result'
+      fullPath: '/result'
+      preLoaderRoute: typeof ResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -107,57 +99,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/u/': {
-      id: '/u/'
-      path: '/'
-      fullPath: '/u/'
-      preLoaderRoute: typeof UIndexRouteImport
-      parentRoute: typeof URoute
-    }
-    '/u/result': {
-      id: '/u/result'
-      path: '/result'
-      fullPath: '/u/result'
-      preLoaderRoute: typeof UResultRouteImport
-      parentRoute: typeof URoute
-    }
-    '/u/community': {
-      id: '/u/community'
-      path: '/community'
-      fullPath: '/u/community'
-      preLoaderRoute: typeof UCommunityRouteImport
-      parentRoute: typeof URoute
-    }
-    '/u/about': {
-      id: '/u/about'
-      path: '/about'
-      fullPath: '/u/about'
-      preLoaderRoute: typeof UAboutRouteImport
-      parentRoute: typeof URoute
-    }
   }
 }
 
-interface URouteChildren {
-  UAboutRoute: typeof UAboutRoute
-  UCommunityRoute: typeof UCommunityRoute
-  UResultRoute: typeof UResultRoute
-  UIndexRoute: typeof UIndexRoute
-}
-
-const URouteChildren: URouteChildren = {
-  UAboutRoute: UAboutRoute,
-  UCommunityRoute: UCommunityRoute,
-  UResultRoute: UResultRoute,
-  UIndexRoute: UIndexRoute,
-}
-
-const URouteWithChildren = URoute._addFileChildren(URouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  URoute: URouteWithChildren,
+  AboutRoute: AboutRoute,
+  CommunityRoute: CommunityRoute,
+  ResultRoute: ResultRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

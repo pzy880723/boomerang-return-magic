@@ -1,40 +1,131 @@
-## 根因
+# 注册登录 + 「我的」体系策划
 
-`CameraStage` 在用户按快门或选完文件后，要在主线程同步跑完一连串重活，才会触发父级的 `navigate('/result')`：
+## 总体目标
+- 不打扰当前游客流：游客继续可以拍、可以看，但**有上限**
+- 注册登录后：识别次数无上限、用真实昵称发圈、可点赞 / 评论 / 收藏、有「我的」入口
+- 注册方式：**仅手机号验证码登录**（Supabase 默认 Twilio 通道）
 
-- **上传路径**：`FileReader.readAsDataURL`（200-800ms）→ `compressImage`（把整张 4000×3000 的手机原图 decode 到 `<Image>`、画到 canvas、再 `toDataURL('jpeg')`，中端手机 1-2.5s）→ 才 `setCapturedImage` → `runRecognize` → `onRecognize`(navigate)。整个过程 UI 没有任何反馈，用户看到的就是「点了上传 → 卡住 → 突然跳走」。
-- **拍照路径**：`grabFrame` 本身的 JPEG 编码 100-300ms 可以接受，但 `runRecognize` 在 `await onRecognize` 后还有 `setForceAllDone(true)` + `await setTimeout(260)`，由于父级 `onRecognize` 同步返回，这 260ms 全部累在跳转动画上。
+---
 
-也就是说"卡顿"主要来自压缩与不必要的完成动画 delay，与网络或 AI 无关。
+## 1. 信息架构（底部 Tab 调整）
 
-## 修复方案
+```
+拍一拍   |   中古圈   |   我的（登录后） / 登录（未登录）   |   关于
+```
 
-只改 3 个文件：`src/components/recognition/CameraStage.tsx`、`src/lib/imageThumb.ts`、`src/hooks/useGuestRecognition.tsx`。
+把现有 3 个 Tab 扩展为 4 个：
+- 未登录时第 3 个 Tab 文案是「登录」，点了去 `/login`
+- 登录后第 3 个 Tab 变「我的」，去 `/me`
 
-**1. `src/lib/imageThumb.ts` — 新增通用压缩函数**
+---
 
-新增 `compressDataUrl(src, { maxWidth = 1024, quality = 0.7 }): Promise<string>`，复用现有 `loadImage`。这是把 CameraStage 里的 `compressImage` 抽成共享 util，给「识别前」用。
+## 2. 关键页面与路由
 
-**2. `src/components/recognition/CameraStage.tsx` — 不在拍摄/上传链路里做压缩**
+| 路由 | 说明 |
+|---|---|
+| `/login` | 手机号 + 验证码登录（注册 = 首次登录自动建账号） |
+| `/me` | 我的入口：头像、昵称、4 个二级入口 |
+| `/me/profile` | **我的主页**（头像 + 昵称 + 我发的中古圈帖子，可分享） |
+| `/u/$userId` | 任意用户主页（其他人点头像也走这里） |
+| `/me/favorites` | 我的收藏 |
+| `/me/history` | 我的识别历史 |
+| `/me/notifications` | 互动消息（点赞 / 评论 / @我） |
+| `/me/settings` | 账号设置（改昵称、改头像、退出登录、注销账号） |
 
-- 删除内部的 `compressImage`。
-- `handleFileUpload`：FileReader 读完就 `setCapturedImage(raw)`、立刻 `runRecognize([raw])`，不再 `await compressImage`。多张模式同理：读完即入列展示。
-- `grabFrame` 保留现状（video 帧 640×Q0.62，本身就很小，无感知开销）。
-- `runRecognize` 内部，成功后把「`setForceAllDone(true)` + `await setTimeout(260)` + `setIsRecognizing(false)`」这段，仅在 `keepPreviewAfterSuccess === true`（店员版场景）时执行；游客版（`keepPreviewAfterSuccess=false`）直接 `setIsRecognizing(false)` 不等动画——页面已经在跳走，260ms 完全是浪费。
+---
 
-**3. `src/hooks/useGuestRecognition.tsx` — 在发请求前压缩**
+## 3. 登录与配额逻辑
 
-`recognize` 调用 `supabase.functions.invoke` 之前，对 `imageBase64` / `images` 做一次 `compressDataUrl(src, { maxWidth: 1024, quality: 0.7 })`（多张并行 `Promise.all`）。压缩此时发生在 `/result` 页面 RevealSkeleton 已经显示的"AI 思考"阶段，用户视觉上完全无感。`computeImageHash` 也用压缩后的 base64，体积更小、计算更快。
+### 游客
+- 拍照识别：保留现有 `guest_daily_usage` 每日配额
+- 当日额度用完时，识别页弹「注册免费解锁无限识别」引导卡 → `/login`
+- 中古圈：可看不可发、不可点赞、不可评论、不可收藏 → 触发动作时弹同一引导卡
 
-## 不改的内容
+### 已登录
+- 识别次数无上限（移除 `recognize_count` 校验）
+- 中古圈发布走新接口，落 `user_id`，`is_guest = false`，`guest_name = null`，展示真实昵称 / 头像
+- 可点赞、评论、收藏
 
-- PublicScan / PublicResult 的渲染逻辑、RevealSkeleton 骨架 UI、ProductCard 与分享文案
-- Edge function、AI 模型、缓存
-- CameraStage 视觉、引导提示
+---
 
-## 验证
+## 4. 数据模型（新增 / 调整）
 
-在 390×595 视口下：
-1. 「上传」一张未压缩的手机原图：点击后立刻看到照片 + 跳到结果页骨架，无相机界面停留；几秒后展示真实结果。
-2. 「启动摄像头」拍一张：按下快门到结果页骨架的过渡感觉为「即时」（< 200ms）。
-3. 多角度合并上传 3 张：3 张都立刻入列、点「完成」立刻跳转，结果页显示"读取 3 张图..."骨架。
+新增：
+- `profiles(id=user_id, nickname, avatar_url, bio, created_at, updated_at)`  
+  注册即触发器自动建一行，默认昵称「中古er + 4位随机」
+- `post_likes(user_id, post_id, created_at)` 唯一约束 (user_id, post_id)
+- `post_comments(id, post_id, user_id, content, created_at)`
+- `post_favorites(user_id, post_id, created_at)`
+- `recognition_history(id, user_id, image_url, thumbnail_url, result jsonb, created_at)` ← 登录用户每次识别落一条
+- `notifications(id, user_id, type[like|comment], post_id, actor_user_id, content, is_read, created_at)`
+
+调整：
+- `community_posts.likes_count / comments_count` 由触发器维护
+- 给 `community_posts` 加 `INSERT/UPDATE/DELETE` RLS 给作者本人
+- 所有新表开 RLS：本人可读写自己那部分；公共展示走 server function（admin client 投影安全字段）
+
+---
+
+## 5. 后端（TanStack server functions，全部走 `createServerFn`）
+
+- `auth`：用 `supabase.auth.signInWithOtp({ phone })` + `verifyOtp`，浏览器侧直接调 supabase 客户端即可，无需 server function
+- `getMyProfile` / `updateMyProfile` （require auth）
+- `getUserProfile({ userId })` （public，admin client 投影 nickname/avatar/帖子列表）
+- `submitUserPost` （require auth，用 `context.supabase`，作者写自己 user_id）
+- `togglePostLike` / `togglePostFavorite` / `addComment` / `deleteMyComment`
+- `listMyFavorites` / `listMyHistory` / `listMyNotifications` / `markNotificationRead`
+- `recordRecognitionHistory`（登录态每次识别成功后写一条）
+
+`/admin` 删帖逻辑保持现状（service role）。
+
+---
+
+## 6. UI 改造点
+
+- `CameraStage` / `useGuestRecognition`：登录态绕过日额度；额度耗尽弹「登录解锁无限识别」CTA
+- `PublicCommunity` 卡片：
+  - 顶部头像 + 昵称（游客继续显示「游客」）
+  - 右下角加心形（赞）/ 收藏 / 评论数；未登录点击 → `/login`
+- 新增 `LoginGate` Hook：未登录触发受限动作时统一弹 sheet 引导
+- 发布弹窗里：登录后默认带上自己的昵称（不可改），游客保留现有「游客」展示
+
+---
+
+## 7. 微信登录的处理建议
+
+Lovable Cloud / Supabase 不原生支持微信。三种路径：
+
+1. **现在先不做**（推荐）：仅手机号已能覆盖 95% 微信场景下的用户，因为微信浏览器里也能收短信
+2. 后续若你拿到微信开放平台 AppID/Secret，再单独做一期：自建 OAuth 回调 server route + Supabase `signInWithIdToken` 自定义 provider
+3. 公众号场景另算（需要服务号 + 模板消息资质）
+
+本次方案按「先做手机号」推进，把微信入口在登录页留一个「微信登录（即将上线）」灰态按钮，避免后续改版。
+
+---
+
+## 8. 实施顺序（建议拆 3 个里程碑）
+
+**M1 · 登录闭环**
+- 数据库迁移：profiles 表 + 触发器 + RLS
+- `/login` 手机号验证码页（含「微信登录即将上线」灰按钮）
+- 启用 Supabase 手机号登录（你后续在 Cloud 后台填 Twilio 凭据）
+- `__root.tsx` 集成 `onAuthStateChange` + 顶部右上角头像/登录态切换
+- 第 3 个 Tab 切「登录 / 我的」
+
+**M2 · 「我的」与发帖归属**
+- `/me` 主入口 + `/me/profile` + `/me/settings`（改昵称、头像、退出）
+- `/u/$userId` 公共主页
+- 登录态发帖落真实 `user_id`，识别无上限 + 写 `recognition_history`
+- `/me/history` 列表
+
+**M3 · 互动闭环**
+- 点赞 / 收藏 / 评论 + 计数触发器 + RLS
+- `/me/favorites`、`/me/notifications`
+- 中古圈卡片接互动按钮 + `LoginGate`
+
+---
+
+## 9. 待你确认
+1. 短信 Twilio 凭据由你后续在 Cloud 后台配置（我会在 M1 完成后告诉你具体填哪几项）
+2. 默认昵称规则：「中古er + 4位随机数字」是否可以？
+3. M1 / M2 / M3 是否一次性全做，还是先做 M1 验证流程？

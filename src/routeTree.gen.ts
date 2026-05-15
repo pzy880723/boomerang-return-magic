@@ -13,6 +13,7 @@ import { Route as ResultRouteImport } from './routes/result'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UIndexRouteImport } from './routes/u.index'
 import { Route as USplatRouteImport } from './routes/u.$'
 
 const ResultRoute = ResultRouteImport.update({
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UIndexRoute = UIndexRouteImport.update({
+  id: '/u/',
+  path: '/u/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const USplatRoute = USplatRouteImport.update({
   id: '/u/$',
   path: '/u/$',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
+  '/u/': typeof UIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
+  '/u': typeof UIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,14 @@ export interface FileRoutesById {
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
   '/u/$': typeof USplatRoute
+  '/u/': typeof UIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/community' | '/result' | '/u/$'
+  fullPaths: '/' | '/about' | '/community' | '/result' | '/u/$' | '/u/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/community' | '/result' | '/u/$'
-  id: '__root__' | '/' | '/about' | '/community' | '/result' | '/u/$'
+  to: '/' | '/about' | '/community' | '/result' | '/u/$' | '/u'
+  id: '__root__' | '/' | '/about' | '/community' | '/result' | '/u/$' | '/u/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +86,7 @@ export interface RootRouteChildren {
   CommunityRoute: typeof CommunityRoute
   ResultRoute: typeof ResultRoute
   USplatRoute: typeof USplatRoute
+  UIndexRoute: typeof UIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/u/': {
+      id: '/u/'
+      path: '/u'
+      fullPath: '/u/'
+      preLoaderRoute: typeof UIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/u/$': {
       id: '/u/$'
       path: '/u/$'
@@ -125,6 +142,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityRoute: CommunityRoute,
   ResultRoute: ResultRoute,
   USplatRoute: USplatRoute,
+  UIndexRoute: UIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

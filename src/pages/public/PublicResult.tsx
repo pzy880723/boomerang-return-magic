@@ -305,7 +305,7 @@ export default function PublicResult() {
 
   // —— 正常结果页 ——
   return (
-    <div className="container max-w-screen-md py-3 space-y-6">
+    <div className="container max-w-screen-md py-3 space-y-6 animate-fade-in">
       {/* 顶部返回条 */}
       <div className="flex items-center justify-between">
         <Button

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -9,19 +9,15 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useRef } from "react";
-import { Camera, Users, Info } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Camera, Users, Info, User as UserIcon, LogIn } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/boomer-off-vintage-logo.png";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
-
-const tabs = [
-  { to: "/", label: "拍一拍", Icon: Camera, exact: true },
-  { to: "/community", label: "中古圈", Icon: Users, exact: false },
-  { to: "/about", label: "关于", Icon: Info, exact: false },
-] as const;
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (

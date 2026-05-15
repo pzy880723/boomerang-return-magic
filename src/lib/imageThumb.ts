@@ -22,6 +22,29 @@ export async function makeThumbnail(
   }
 }
 
+/** 识别前压缩：把原图缩到 ~1024px / 0.7 jpeg，失败则返回原图 */
+export async function compressDataUrl(
+  src: string,
+  { maxWidth = 1024, quality = 0.7 }: { maxWidth?: number; quality?: number } = {},
+): Promise<string> {
+  try {
+    const img = await loadImage(src);
+    const ratio = Math.min(maxWidth / img.width, 1);
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return src;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch (e) {
+    console.warn('[compressDataUrl] failed, using original:', e);
+    return src;
+  }
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();

@@ -10,16 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResultRouteImport } from './routes/result'
+import { Route as MeRouteImport } from './routes/me'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UIndexRouteImport } from './routes/u.index'
 import { Route as USplatRouteImport } from './routes/u.$'
+import { Route as MeSettingsRouteImport } from './routes/me.settings'
+import { Route as MeProfileRouteImport } from './routes/me.profile'
+import { Route as MeNotificationsRouteImport } from './routes/me.notifications'
+import { Route as MeHistoryRouteImport } from './routes/me.history'
+import { Route as MeFavoritesRouteImport } from './routes/me.favorites'
 
 const ResultRoute = ResultRouteImport.update({
   id: '/result',
   path: '/result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeRoute = MeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityRoute = CommunityRouteImport.update({
@@ -52,13 +69,45 @@ const USplatRoute = USplatRouteImport.update({
   path: '/u/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MeSettingsRoute = MeSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => MeRoute,
+} as any)
+const MeProfileRoute = MeProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => MeRoute,
+} as any)
+const MeNotificationsRoute = MeNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => MeRoute,
+} as any)
+const MeHistoryRoute = MeHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => MeRoute,
+} as any)
+const MeFavoritesRoute = MeFavoritesRouteImport.update({
+  id: '/favorites',
+  path: '/favorites',
+  getParentRoute: () => MeRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRouteWithChildren
   '/result': typeof ResultRoute
+  '/me/favorites': typeof MeFavoritesRoute
+  '/me/history': typeof MeHistoryRoute
+  '/me/notifications': typeof MeNotificationsRoute
+  '/me/profile': typeof MeProfileRoute
+  '/me/settings': typeof MeSettingsRoute
   '/u/$': typeof USplatRoute
   '/u/': typeof UIndexRoute
 }
@@ -67,7 +116,14 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRouteWithChildren
   '/result': typeof ResultRoute
+  '/me/favorites': typeof MeFavoritesRoute
+  '/me/history': typeof MeHistoryRoute
+  '/me/notifications': typeof MeNotificationsRoute
+  '/me/profile': typeof MeProfileRoute
+  '/me/settings': typeof MeSettingsRoute
   '/u/$': typeof USplatRoute
   '/u': typeof UIndexRoute
 }
@@ -77,7 +133,14 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/community': typeof CommunityRoute
+  '/login': typeof LoginRoute
+  '/me': typeof MeRouteWithChildren
   '/result': typeof ResultRoute
+  '/me/favorites': typeof MeFavoritesRoute
+  '/me/history': typeof MeHistoryRoute
+  '/me/notifications': typeof MeNotificationsRoute
+  '/me/profile': typeof MeProfileRoute
+  '/me/settings': typeof MeSettingsRoute
   '/u/$': typeof USplatRoute
   '/u/': typeof UIndexRoute
 }
@@ -88,18 +151,46 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/community'
+    | '/login'
+    | '/me'
     | '/result'
+    | '/me/favorites'
+    | '/me/history'
+    | '/me/notifications'
+    | '/me/profile'
+    | '/me/settings'
     | '/u/$'
     | '/u/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/admin' | '/community' | '/result' | '/u/$' | '/u'
+  to:
+    | '/'
+    | '/about'
+    | '/admin'
+    | '/community'
+    | '/login'
+    | '/me'
+    | '/result'
+    | '/me/favorites'
+    | '/me/history'
+    | '/me/notifications'
+    | '/me/profile'
+    | '/me/settings'
+    | '/u/$'
+    | '/u'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/admin'
     | '/community'
+    | '/login'
+    | '/me'
     | '/result'
+    | '/me/favorites'
+    | '/me/history'
+    | '/me/notifications'
+    | '/me/profile'
+    | '/me/settings'
     | '/u/$'
     | '/u/'
   fileRoutesById: FileRoutesById
@@ -109,6 +200,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   CommunityRoute: typeof CommunityRoute
+  LoginRoute: typeof LoginRoute
+  MeRoute: typeof MeRouteWithChildren
   ResultRoute: typeof ResultRoute
   USplatRoute: typeof USplatRoute
   UIndexRoute: typeof UIndexRoute
@@ -121,6 +214,20 @@ declare module '@tanstack/react-router' {
       path: '/result'
       fullPath: '/result'
       preLoaderRoute: typeof ResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me': {
+      id: '/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community': {
@@ -165,14 +272,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof USplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/me/settings': {
+      id: '/me/settings'
+      path: '/settings'
+      fullPath: '/me/settings'
+      preLoaderRoute: typeof MeSettingsRouteImport
+      parentRoute: typeof MeRoute
+    }
+    '/me/profile': {
+      id: '/me/profile'
+      path: '/profile'
+      fullPath: '/me/profile'
+      preLoaderRoute: typeof MeProfileRouteImport
+      parentRoute: typeof MeRoute
+    }
+    '/me/notifications': {
+      id: '/me/notifications'
+      path: '/notifications'
+      fullPath: '/me/notifications'
+      preLoaderRoute: typeof MeNotificationsRouteImport
+      parentRoute: typeof MeRoute
+    }
+    '/me/history': {
+      id: '/me/history'
+      path: '/history'
+      fullPath: '/me/history'
+      preLoaderRoute: typeof MeHistoryRouteImport
+      parentRoute: typeof MeRoute
+    }
+    '/me/favorites': {
+      id: '/me/favorites'
+      path: '/favorites'
+      fullPath: '/me/favorites'
+      preLoaderRoute: typeof MeFavoritesRouteImport
+      parentRoute: typeof MeRoute
+    }
   }
 }
+
+interface MeRouteChildren {
+  MeFavoritesRoute: typeof MeFavoritesRoute
+  MeHistoryRoute: typeof MeHistoryRoute
+  MeNotificationsRoute: typeof MeNotificationsRoute
+  MeProfileRoute: typeof MeProfileRoute
+  MeSettingsRoute: typeof MeSettingsRoute
+}
+
+const MeRouteChildren: MeRouteChildren = {
+  MeFavoritesRoute: MeFavoritesRoute,
+  MeHistoryRoute: MeHistoryRoute,
+  MeNotificationsRoute: MeNotificationsRoute,
+  MeProfileRoute: MeProfileRoute,
+  MeSettingsRoute: MeSettingsRoute,
+}
+
+const MeRouteWithChildren = MeRoute._addFileChildren(MeRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   CommunityRoute: CommunityRoute,
+  LoginRoute: LoginRoute,
+  MeRoute: MeRouteWithChildren,
   ResultRoute: ResultRoute,
   USplatRoute: USplatRoute,
   UIndexRoute: UIndexRoute,

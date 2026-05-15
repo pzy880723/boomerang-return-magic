@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -9,19 +9,15 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useRef } from "react";
-import { Camera, Users, Info } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Camera, Users, Info, User as UserIcon, LogIn } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/boomer-off-vintage-logo.png";
 import { ErrorBoundary } from "@/components/system/ErrorBoundary";
-
-const tabs = [
-  { to: "/", label: "拍一拍", Icon: Camera, exact: true },
-  { to: "/community", label: "中古圈", Icon: Users, exact: false },
-  { to: "/about", label: "关于", Icon: Info, exact: false },
-] as const;
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -111,10 +107,29 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+type TabItem = {
+  to: "/" | "/community" | "/about" | "/me" | "/login";
+  label: string;
+  Icon: typeof Camera;
+  exact: boolean;
+};
+
 function PublicChrome() {
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const tapRef = useRef<{ count: number; last: number }>({ count: 0, last: 0 });
+
+  // 登录状态变化 → 失效缓存与路由
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      router.invalidate();
+      queryClient.invalidateQueries();
+    });
+    return () => subscription.unsubscribe();
+  }, [router, queryClient]);
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const now = Date.now();
@@ -127,6 +142,15 @@ function PublicChrome() {
       navigate({ to: "/admin" });
     }
   };
+
+  const tabs: TabItem[] = [
+    { to: "/", label: "拍一拍", Icon: Camera, exact: true },
+    { to: "/community", label: "中古圈", Icon: Users, exact: false },
+    user
+      ? { to: "/me", label: "我的", Icon: UserIcon, exact: false }
+      : { to: "/login", label: "登录", Icon: LogIn, exact: false },
+    { to: "/about", label: "关于", Icon: Info, exact: false },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-surface flex flex-col">
@@ -194,7 +218,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <PublicChrome />
+      <AuthProvider>
+        <PublicChrome />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
+

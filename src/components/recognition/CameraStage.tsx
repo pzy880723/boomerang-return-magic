@@ -213,8 +213,8 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
       const finalTime = performance.now() - timerStartRef.current;
       setElapsedTime(finalTime);
       setRecognitionTime(finalTime);
-      if (ok) {
-        // 让用户看到一次"全部 ✓"的完成感再收起遮罩
+      if (ok && keepPreviewAfterSuccess) {
+        // 保留预览的场景（店员版）才播放"全部 ✓"完成感
         setForceAllDone(true);
         await new Promise((r) => setTimeout(r, 260));
       }

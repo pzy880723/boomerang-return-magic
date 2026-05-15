@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { computeImageHash } from '@/lib/imageHash';
+import { compressDataUrl } from '@/lib/imageThumb';
 import type { RecognitionResult, ProductCategory } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,11 +29,17 @@ export function useGuestRecognition() {
     setIsRecognizing(true);
     setResult(null);
     try {
-      const firstImage = Array.isArray(input) ? input[0] : input;
+      // 识别前压缩：把任意大小的原图缩到 ~1024px / 0.7 jpeg，
+      // 减小 base64 体积、加快上行速度。多张并行处理。
+      const compressed = Array.isArray(input)
+        ? await Promise.all(input.map((src) => compressDataUrl(src)))
+        : [await compressDataUrl(input)];
+      const firstImage = compressed[0];
       const imageHash = firstImage ? await computeImageHash(firstImage) : null;
-      const body: Record<string, unknown> = Array.isArray(input)
-        ? { imageBase64: input[0], images: input }
-        : { imageBase64: input };
+      const body: Record<string, unknown> =
+        compressed.length > 1
+          ? { imageBase64: compressed[0], images: compressed }
+          : { imageBase64: compressed[0] };
       if (imageHash) body.imageHash = imageHash;
 
       const { data, error } = await supabase.functions.invoke('recognize-product-public', { body });

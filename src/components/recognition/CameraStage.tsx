@@ -153,33 +153,9 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
     await startCamera(newMode);
   };
 
-  const compressImage = (imageData: string): Promise<string> => {
-    const isMulti = captureMode === 'multi';
-    const w = isMulti ? 576 : 640;
-    const q = isMulti ? 0.6 : 0.62;
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > w) {
-          height = (height * w) / width;
-          width = w;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', q));
-        } else {
-          resolve(imageData);
-        }
-      };
-      img.src = imageData;
-    });
-  };
+  // 注：识别前的压缩已搬到 useGuestRecognition.recognize 里完成，
+  // 这样拍照/上传后能立刻 navigate，压缩在结果页骨架显示期间进行。
+
 
   const grabFrame = (): string | null => {
     if (!videoRef.current) return null;
@@ -237,8 +213,8 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
       const finalTime = performance.now() - timerStartRef.current;
       setElapsedTime(finalTime);
       setRecognitionTime(finalTime);
-      if (ok) {
-        // 让用户看到一次"全部 ✓"的完成感再收起遮罩
+      if (ok && keepPreviewAfterSuccess) {
+        // 保留预览的场景（店员版）才播放"全部 ✓"完成感
         setForceAllDone(true);
         await new Promise((r) => setTimeout(r, 260));
       }
@@ -291,9 +267,8 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
     const readFile = (file: File) =>
       new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onload = async (ev) => {
-          const raw = ev.target?.result as string;
-          resolve(await compressImage(raw));
+        reader.onload = (ev) => {
+          resolve(ev.target?.result as string);
         };
         reader.readAsDataURL(file);
       });

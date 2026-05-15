@@ -107,10 +107,29 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+type TabItem = {
+  to: "/" | "/community" | "/about" | "/me" | "/login";
+  label: string;
+  Icon: typeof Camera;
+  exact: boolean;
+};
+
 function PublicChrome() {
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const tapRef = useRef<{ count: number; last: number }>({ count: 0, last: 0 });
+
+  // 登录状态变化 → 失效缓存与路由
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      router.invalidate();
+      queryClient.invalidateQueries();
+    });
+    return () => subscription.unsubscribe();
+  }, [router, queryClient]);
 
   const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const now = Date.now();
@@ -123,6 +142,15 @@ function PublicChrome() {
       navigate({ to: "/admin" });
     }
   };
+
+  const tabs: TabItem[] = [
+    { to: "/", label: "拍一拍", Icon: Camera, exact: true },
+    { to: "/community", label: "中古圈", Icon: Users, exact: false },
+    user
+      ? { to: "/me", label: "我的", Icon: UserIcon, exact: false }
+      : { to: "/login", label: "登录", Icon: LogIn, exact: false },
+    { to: "/about", label: "关于", Icon: Info, exact: false },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-surface flex flex-col">
@@ -190,7 +218,10 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <PublicChrome />
+      <AuthProvider>
+        <PublicChrome />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
+

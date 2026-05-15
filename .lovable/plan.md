@@ -1,47 +1,40 @@
-## 问题诊断
+## 根因
 
-在 390×595 这种典型手机视口下，当前 `GuestOnboarding` 有几个明显问题：
+`CameraStage` 在用户按快门或选完文件后，要在主线程同步跑完一连串重活，才会触发父级的 `navigate('/result')`：
 
-1. **高亮目标可能在视口外不滚动**：`onboard-start-camera`（启动摄像头按钮）和 `onboard-multi-mode`（模式切换 Tab）都在 `CameraStage` 内部，位于较长的 Hero 之下。打开页面时这两个目标常常需要向下滚动才能看到，但 `GuestOnboarding` 只 `getBoundingClientRect`，不会主动滚动到目标 → 用户只看到一片黑屏 + 飘在顶上的气泡，找不到挖洞高亮。
-2. **气泡可能超出视口**：气泡 `top` / `bottom` 计算后没有夹到视口范围内，placement='top' 时如果目标靠上、气泡较高，会顶到状态栏甚至被截断；placement='bottom' 时如果目标靠下，气泡会掉出屏幕底部。
-3. **居中插画卡（第 3、4 步）在小屏太挤**：固定 `w-[min(22rem,...)]` + 居中，配合图标 + 标题 + 描述 + 两个按钮，垂直空间紧张时没有 `max-height` 与滚动兜底。
-4. **未考虑 safe-area**：iPhone 底部 home indicator / 顶部刘海会再吃掉 ~30-40px，bubble 可能压在系统手势区。
-5. **小细节**：Skip / 下一步按钮在窄屏 320px 上略显拥挤；进度点容易被标题挤换行。
+- **上传路径**：`FileReader.readAsDataURL`（200-800ms）→ `compressImage`（把整张 4000×3000 的手机原图 decode 到 `<Image>`、画到 canvas、再 `toDataURL('jpeg')`，中端手机 1-2.5s）→ 才 `setCapturedImage` → `runRecognize` → `onRecognize`(navigate)。整个过程 UI 没有任何反馈，用户看到的就是「点了上传 → 卡住 → 突然跳走」。
+- **拍照路径**：`grabFrame` 本身的 JPEG 编码 100-300ms 可以接受，但 `runRecognize` 在 `await onRecognize` 后还有 `setForceAllDone(true)` + `await setTimeout(260)`，由于父级 `onRecognize` 同步返回，这 260ms 全部累在跳转动画上。
 
-## 实施方案（仅改 `src/components/public/GuestOnboarding.tsx`）
+也就是说"卡顿"主要来自压缩与不必要的完成动画 delay，与网络或 AI 无关。
 
-**A. 切换步骤时自动滚动目标到视口中央**
+## 修复方案
 
-`useLayoutEffect` 中：拿到目标元素后，先 `el.scrollIntoView({ behavior: 'smooth', block: 'center' })`，再延迟 ~250ms 二次 `measure()` 拿到最终位置，避免读到滚动前的旧 rect。`window` 不存在或 `targetId` 为空时跳过。
+只改 3 个文件：`src/components/recognition/CameraStage.tsx`、`src/lib/imageThumb.ts`、`src/hooks/useGuestRecognition.tsx`。
 
-**B. 气泡定位夹到视口安全区**
+**1. `src/lib/imageThumb.ts` — 新增通用压缩函数**
 
-引入常量 `SAFE_TOP = 12`、`SAFE_BOTTOM = 16 + env(safe-area-inset-bottom)`（用 CSS `paddingBottom: 'max(env(safe-area-inset-bottom), 0px)'` 在容器上托底，JS 里用固定 16）。
+新增 `compressDataUrl(src, { maxWidth = 1024, quality = 0.7 }): Promise<string>`，复用现有 `loadImage`。这是把 CameraStage 里的 `compressImage` 抽成共享 util，给「识别前」用。
 
-- 用 `ref` 测气泡自身 `offsetHeight`（`useLayoutEffect`），存为 `bubbleH`。
-- 计算 `bottomPlacementTop = hi.top + hi.height + 12`，若 `bottomPlacementTop + bubbleH > vh - SAFE_BOTTOM`，自动翻转为 top；反之亦然。两边都放不下时，降级为底部贴边的 sheet 样式：`bottom: SAFE_BOTTOM`，`top: auto`，并对气泡内容套 `max-height: 60vh; overflow-y:auto`。
-- placement 计算用 `bubbleH` 而不是固定的 220px 经验值。
+**2. `src/components/recognition/CameraStage.tsx` — 不在拍摄/上传链路里做压缩**
 
-**C. 居中插画卡兜底滚动**
+- 删除内部的 `compressImage`。
+- `handleFileUpload`：FileReader 读完就 `setCapturedImage(raw)`、立刻 `runRecognize([raw])`，不再 `await compressImage`。多张模式同理：读完即入列展示。
+- `grabFrame` 保留现状（video 帧 640×Q0.62，本身就很小，无感知开销）。
+- `runRecognize` 内部，成功后把「`setForceAllDone(true)` + `await setTimeout(260)` + `setIsRecognizing(false)`」这段，仅在 `keepPreviewAfterSuccess === true`（店员版场景）时执行；游客版（`keepPreviewAfterSuccess=false`）直接 `setIsRecognizing(false)` 不等动画——页面已经在跳走，260ms 完全是浪费。
 
-无 `targetId` 的步骤使用 `top: 50%` 居中。增加 `max-height: calc(100vh - 2 * SAFE_TOP)`，超出时内部滚动；按钮区改为 `sticky bottom-0 bg-background pt-2`，确保 CTA 永远可见。
+**3. `src/hooks/useGuestRecognition.tsx` — 在发请求前压缩**
 
-**D. 窄屏样式与可读性**
-
-- 气泡宽度从 `w-[min(22rem, calc(100vw-2rem))]` 调整为 `w-[min(22rem, calc(100vw-1.5rem))]`，留更小左右边距。
-- 头部「步骤计数 + 进度点」改为 `flex-wrap` 并把进度点放在自己的一行尾部，避免在 320px 上挤换行。
-- 「跳过 / 下一步」按钮区域加 `min-h-9`，按钮 `size="sm"` 不变；当只剩 1 步时把「跳过」隐藏，仅留「开始体验」更聚焦。
-
-**E. 高亮挖洞的 padding 适配小屏**
-
-`PADDING` 在视口宽度 < 400px 时降为 6（默认 8），避免对 Tab 这种贴边元素挖出视口外的洞导致整屏全黑。
+`recognize` 调用 `supabase.functions.invoke` 之前，对 `imageBase64` / `images` 做一次 `compressDataUrl(src, { maxWidth: 1024, quality: 0.7 })`（多张并行 `Promise.all`）。压缩此时发生在 `/result` 页面 RevealSkeleton 已经显示的"AI 思考"阶段，用户视觉上完全无感。`computeImageHash` 也用压缩后的 base64，体积更小、计算更快。
 
 ## 不改的内容
 
-- `PublicScan.tsx` 的步骤定义、`targetId`、文案均保持不变。
-- `CameraStage.tsx` 不动。
-- 设计 token / 颜色不动，只调结构与定位逻辑。
+- PublicScan / PublicResult 的渲染逻辑、RevealSkeleton 骨架 UI、ProductCard 与分享文案
+- Edge function、AI 模型、缓存
+- CameraStage 视觉、引导提示
 
 ## 验证
 
-完成后在 390×595 与 360×640 两个常见手机视口下走一遍 4 步引导，确认：每一步高亮元素可见、气泡完整在屏内、底部按钮不被 home indicator 遮挡、居中插画卡在 595 高度下不溢出。
+在 390×595 视口下：
+1. 「上传」一张未压缩的手机原图：点击后立刻看到照片 + 跳到结果页骨架，无相机界面停留；几秒后展示真实结果。
+2. 「启动摄像头」拍一张：按下快门到结果页骨架的过渡感觉为「即时」（< 200ms）。
+3. 多角度合并上传 3 张：3 张都立刻入列、点「完成」立刻跳转，结果页显示"读取 3 张图..."骨架。

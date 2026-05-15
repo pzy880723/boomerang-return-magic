@@ -4,8 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* 字体 */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+/* 字体由 __root.tsx 的 head links 直接 <link> 引入，避免 @import 阻塞渲染 */
 
 /* ==========================================================================
    Design system — 中古商品识物（顾客版）
@@ -43,8 +42,8 @@
   --color-ring: hsl(var(--ring));
   --color-ring-offset-background: hsl(var(--background));
 
-  --font-display: "Playfair Display", "Noto Sans SC", serif;
-  --font-sans: "Noto Sans SC", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", serif;
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -156,12 +155,12 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
   }
   .font-display {
-    font-family: "Playfair Display", "Noto Sans SC", serif;
+    font-family: "Playfair Display", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", serif;
     letter-spacing: -0.01em;
   }
   .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.75rem); }

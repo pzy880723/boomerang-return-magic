@@ -69,7 +69,7 @@ export default function PublicAbout() {
       </section>
 
       <Button asChild className="w-full" size="lg">
-        <Link to="/u">
+        <Link to="/">
           <Camera className="w-4 h-4 mr-2" /> 现在就拍一拍
         </Link>
       </Button>

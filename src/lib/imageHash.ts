@@ -1,6 +1,7 @@
 // 轻量 pHash：把图缩成 32x32 灰度，对 8x8 取均值哈希。
 export async function computeImageHash(input: string): Promise<string | null> {
   try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return null;
     const dataUrl = input.startsWith('data:') ? input : `data:image/jpeg;base64,${input}`;
     const img = await loadImage(dataUrl);
 

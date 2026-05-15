@@ -102,7 +102,7 @@ export default function PublicCommunity() {
         <div className="mt-1 flex items-end justify-between gap-3">
           <h1 className="font-display text-[24px] leading-tight tracking-tight">中古圈</h1>
           <Link
-            to="/u"
+            to="/"
             className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-full bg-foreground text-background hover:opacity-90 transition-opacity"
           >
             <Camera className="w-3.5 h-3.5" /> 我也拍一张
@@ -151,7 +151,7 @@ export default function PublicCommunity() {
               还没有人分享过呢
             </p>
             <Link
-              to="/u"
+              to="/"
               className="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-full bg-foreground text-background"
             >
               <Camera className="w-3.5 h-3.5" /> 来发第一张
@@ -250,7 +250,7 @@ function PostDetailSheet({ post, onClose }: { post: Post; onClose: () => void })
           <X className="w-5 h-5" />
         </button>
         <Link
-          to="/u"
+          to="/"
           onClick={onClose}
           className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-foreground text-background"
         >
@@ -307,7 +307,7 @@ function PostDetailSheet({ post, onClose }: { post: Post; onClose: () => void })
             返回中古圈
           </button>
           <Link
-            to="/u"
+            to="/"
             onClick={onClose}
             className="h-11 rounded-2xl bg-foreground text-background text-[13px] font-medium inline-flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
           >

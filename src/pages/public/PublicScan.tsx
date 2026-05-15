@@ -47,7 +47,7 @@ export default function PublicScan() {
     if (!r) return false;
     sessionStorage.setItem('guest_result', JSON.stringify(r));
     sessionStorage.setItem('guest_result_image', images[0]);
-    navigate({ to: '/u/result' });
+    navigate({ to: '/result' });
     return true;
   };
 

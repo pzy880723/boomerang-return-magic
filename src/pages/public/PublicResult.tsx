@@ -212,7 +212,7 @@ export default function PublicResult() {
             </p>
           </div>
           <Button asChild size="lg" className="w-full gap-2">
-            <Link to="/u">
+            <Link to="/">
               <Camera className="w-4 h-4" /> 去拍一拍
             </Link>
           </Button>
@@ -229,7 +229,7 @@ export default function PublicResult() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate({ to: '/u' })}
+          onClick={() => navigate({ to: '/' })}
           className="gap-1 -ml-2 text-foreground/80 hover:bg-muted/60"
         >
           <ChevronLeft className="w-4 h-4" /> 返回
@@ -346,7 +346,7 @@ export default function PublicResult() {
           </Button>
           {shared && (
             <Link
-              to="/u/community"
+              to="/community"
               className="block text-center text-xs underline-offset-2 hover:underline opacity-90"
             >
               去中古圈看看 →
@@ -364,7 +364,7 @@ export default function PublicResult() {
           <Button
             variant="outline"
             className="h-auto py-3.5 flex-col gap-1.5 rounded-2xl"
-            onClick={() => navigate({ to: '/u' })}
+            onClick={() => navigate({ to: '/' })}
           >
             <Camera className="w-4 h-4 text-accent" />
             <span className="text-[12.5px] font-medium">再拍一件</span>
@@ -374,7 +374,7 @@ export default function PublicResult() {
             variant="outline"
             className="h-auto py-3.5 flex-col gap-1.5 rounded-2xl"
           >
-            <Link to="/u/community">
+            <Link to="/community">
               <Aperture className="w-4 h-4 text-accent" />
               <span className="text-[12.5px] font-medium">逛中古圈</span>
             </Link>

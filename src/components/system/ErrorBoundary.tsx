@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReload = () => { try { window.location.reload(); } catch { /* noop */ } };
-  handleGoHome = () => { try { window.location.assign('/u'); } catch { /* noop */ } };
+  handleGoHome = () => { try { window.location.assign('/'); } catch { /* noop */ } };
 
   render() {
     if (this.state.error) {

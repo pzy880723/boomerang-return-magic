@@ -133,11 +133,26 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
         stream.getTracks().forEach((t) => t.stop());
       }
     } catch (error) {
-      toast({
-        title: '无法启动摄像头',
-        description: error instanceof Error ? error.message : '请授权摄像头访问权限',
-        variant: 'destructive',
-      });
+      const name = (error as any)?.name as string | undefined;
+      const isInsecure = typeof window !== 'undefined' && !window.isSecureContext;
+      const inIframe = typeof window !== 'undefined' && window.self !== window.top;
+      let title = '无法启动摄像头';
+      let description = '请改用「上传图片」按钮选择图片';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        title = '摄像头权限被拒绝';
+        description = inIframe
+          ? '预览窗口不支持摄像头，请改用「上传图片」，或在已发布域名打开'
+          : '请在浏览器地址栏给本站授权摄像头，或改用「上传图片」';
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        title = '没有可用的摄像头';
+        description = '请改用「上传图片」按钮选择图片';
+      } else if (isInsecure) {
+        title = '当前页面不安全';
+        description = '摄像头需要 HTTPS 环境，请改用「上传图片」';
+      } else if (error instanceof Error && error.message) {
+        description = `${error.message} · 请改用「上传图片」`;
+      }
+      toast({ title, description, variant: 'destructive' });
     }
   };
 

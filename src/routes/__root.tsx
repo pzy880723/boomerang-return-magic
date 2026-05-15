@@ -125,7 +125,7 @@ function PublicChrome() {
               </div>
             </div>
           </Link>
-          <Link to="/" className="ml-auto shrink-0" aria-label="中古识物">
+          <Link to="/" className="ml-auto shrink-0" aria-label="中古识物" onClick={handleLogoClick}>
             <img src={logo} alt="中古识物" draggable={false} className="h-9 w-auto object-contain" />
           </Link>
         </div>

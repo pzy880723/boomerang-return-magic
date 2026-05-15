@@ -1,1 +1,10 @@
 project_id = "jeuufyekjxyzqjnzqwfw"
+
+[functions.recognize-product-public]
+verify_jwt = false
+
+[functions.submit-public-post]
+verify_jwt = false
+
+[functions.generate-share-copy]
+verify_jwt = false

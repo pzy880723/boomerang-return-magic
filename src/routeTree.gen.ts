@@ -13,6 +13,7 @@ import { Route as ResultRouteImport } from './routes/result'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as USplatRouteImport } from './routes/u.$'
 
 const ResultRoute = ResultRouteImport.update({
   id: '/result',
@@ -34,18 +35,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const USplatRoute = USplatRouteImport.update({
+  id: '/u/$',
+  path: '/u/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
+  '/u/$': typeof USplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
+  '/u/$': typeof USplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
   '/result': typeof ResultRoute
+  '/u/$': typeof USplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/community' | '/result'
+  fullPaths: '/' | '/about' | '/community' | '/result' | '/u/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/community' | '/result'
-  id: '__root__' | '/' | '/about' | '/community' | '/result'
+  to: '/' | '/about' | '/community' | '/result' | '/u/$'
+  id: '__root__' | '/' | '/about' | '/community' | '/result' | '/u/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   CommunityRoute: typeof CommunityRoute
   ResultRoute: typeof ResultRoute
+  USplatRoute: typeof USplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/u/$': {
+      id: '/u/$'
+      path: '/u/$'
+      fullPath: '/u/$'
+      preLoaderRoute: typeof USplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,7 +124,18 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   CommunityRoute: CommunityRoute,
   ResultRoute: ResultRoute,
+  USplatRoute: USplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

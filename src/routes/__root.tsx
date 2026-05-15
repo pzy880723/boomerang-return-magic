@@ -4,27 +4,38 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Camera, Users, Info } from "lucide-react";
 
 import appCss from "../styles.css?url";
+import { cn } from "@/lib/utils";
+import logo from "@/assets/boomer-off-vintage-logo.png";
+import { ErrorBoundary } from "@/components/system/ErrorBoundary";
+
+const tabs = [
+  { to: "/", label: "拍一拍", Icon: Camera, exact: true },
+  { to: "/community", label: "中古圈", Icon: Users, exact: false },
+  { to: "/about", label: "关于", Icon: Info, exact: false },
+] as const;
 
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">页面找不到</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          这个链接可能已经失效或被移走了。
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            回到首页
           </Link>
         </div>
       </div>
@@ -35,31 +46,20 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">页面加载失败</h1>
+        <p className="mt-2 text-sm text-muted-foreground">出了点小问题，可以重试一下。</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            onClick={() => { router.invalidate(); reset(); }}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
-            Try again
+            重试
           </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
+          <a href="/" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground">
+            回到首页
           </a>
         </div>
       </div>
@@ -72,23 +72,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "BOOMER OFF" },
-      { name: "description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "BOOMER OFF" },
-      { property: "og:description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
+      { title: "中古识物 · BOOMER-OFF" },
+      { name: "description", content: "对准中古好物拍一张，AI 1-3 秒读懂年代、产地与背后故事，匿名分享到中古圈。" },
+      { property: "og:title", content: "中古识物 · BOOMER-OFF" },
+      { property: "og:description", content: "对准中古好物拍一张，AI 1-3 秒读懂年代、产地与背后故事。" },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "BOOMER OFF" },
-      { name: "twitter:description", content: "Boomeroff Public is a web application that provides a publicly accessible object recognition system." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91448fab-0fb7-426d-b24a-53b5d1bba876/id-preview-e154247e--97073537-e1d9-4da6-b225-eb3eb47cf078.lovable.app-1778866822132.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/91448fab-0fb7-426d-b24a-53b5d1bba876/id-preview-e154247e--97073537-e1d9-4da6-b225-eb3eb47cf078.lovable.app-1778866822132.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -100,7 +97,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <head>
         <HeadContent />
       </head>
@@ -112,12 +109,75 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PublicChrome() {
+  const location = useLocation();
+  return (
+    <div className="min-h-screen bg-gradient-surface flex flex-col">
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl safe-top">
+        <div className="container flex h-14 items-center gap-3">
+          <Link to="/" className="flex items-center min-w-0 group">
+            <div className="min-w-0 leading-tight">
+              <div className="font-display text-[15px] tracking-tight truncate">中古识物</div>
+              <div className="text-[10px] text-muted-foreground tracking-[0.18em] uppercase">
+                Tap · Discover
+              </div>
+            </div>
+          </Link>
+          <Link to="/" className="ml-auto shrink-0" aria-label="中古识物">
+            <img src={logo} alt="中古识物" draggable={false} className="h-9 w-auto object-contain" />
+          </Link>
+        </div>
+      </header>
+
+      <main className="flex-1 pb-20">
+        <ErrorBoundary scope="page">
+          <Outlet />
+        </ErrorBoundary>
+      </main>
+
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/40 bg-background/85 backdrop-blur-xl safe-bottom"
+        aria-label="底部导航"
+      >
+        <div className="mx-auto max-w-screen-md px-3">
+          <ul className="flex items-stretch justify-around h-14">
+            {tabs.map(({ to, label, Icon, exact }) => {
+              const active = exact
+                ? location.pathname === to
+                : location.pathname === to || location.pathname.startsWith(to + "/");
+              return (
+                <li key={to} className="flex-1">
+                  <Link
+                    to={to}
+                    activeOptions={{ exact }}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center gap-0.5 h-full transition-all",
+                      active ? "text-foreground" : "text-muted-foreground/70 hover:text-foreground",
+                    )}
+                  >
+                    {active && (
+                      <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-full bg-gradient-accent" />
+                    )}
+                    <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2 : 1.6} />
+                    <span className={cn("text-[11px]", active ? "font-semibold" : "font-medium")}>
+                      {label}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </nav>
+    </div>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <PublicChrome />
     </QueryClientProvider>
   );
 }

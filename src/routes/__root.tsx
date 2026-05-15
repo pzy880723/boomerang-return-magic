@@ -5,9 +5,11 @@ import {
   createRootRouteWithContext,
   useRouter,
   useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useRef } from "react";
 import { Camera, Users, Info } from "lucide-react";
 
 import appCss from "../styles.css?url";
@@ -111,6 +113,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function PublicChrome() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const tapRef = useRef<{ count: number; last: number }>({ count: 0, last: 0 });
+
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const now = Date.now();
+    const within = now - tapRef.current.last < 600;
+    tapRef.current.count = within ? tapRef.current.count + 1 : 1;
+    tapRef.current.last = now;
+    if (tapRef.current.count >= 5) {
+      e.preventDefault();
+      tapRef.current.count = 0;
+      navigate({ to: "/admin" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-surface flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl safe-top">
@@ -123,7 +140,7 @@ function PublicChrome() {
               </div>
             </div>
           </Link>
-          <Link to="/" className="ml-auto shrink-0" aria-label="中古识物">
+          <Link to="/" className="ml-auto shrink-0" aria-label="中古识物" onClick={handleLogoClick}>
             <img src={logo} alt="中古识物" draggable={false} className="h-9 w-auto object-contain" />
           </Link>
         </div>

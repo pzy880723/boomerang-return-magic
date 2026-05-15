@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { supabase } from '@/integrations/supabase/client';
 import { CATEGORY_LABELS, ProductCategory } from '@/types';
@@ -133,7 +133,6 @@ function PostManager({ password, onLogout }: { password: string; onLogout: () =>
   const [pendingDelete, setPendingDelete] = useState<Post | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
   const deleteFn = useServerFn(adminDeletePost);
 
   const fetchPage = useCallback(async (offset: number) => {

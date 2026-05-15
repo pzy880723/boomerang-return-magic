@@ -267,9 +267,8 @@ export const CameraStage = forwardRef<CameraStageHandle, CameraStageProps>(funct
     const readFile = (file: File) =>
       new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onload = async (ev) => {
-          const raw = ev.target?.result as string;
-          resolve(await compressImage(raw));
+        reader.onload = (ev) => {
+          resolve(ev.target?.result as string);
         };
         reader.readAsDataURL(file);
       });
